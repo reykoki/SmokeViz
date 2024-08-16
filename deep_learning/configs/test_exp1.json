@@ -1,0 +1,5 @@
+{
+    "encoder": "timm-efficientnet-b2",
+    "lr": 1e-2,
+    "batch_size": 64 
+}
