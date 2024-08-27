@@ -14,7 +14,7 @@ import segmentation_models_pytorch as smp
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-with open('pseudo_labeled_ds.pkl', 'rb') as handle:
+with open('./dataset_pointers/make_list/pseudo_labeled.pkl', 'rb') as handle:
     data_dict = pickle.load(handle)
 
 data_transforms = transforms.Compose([transforms.ToTensor()])
@@ -132,8 +132,8 @@ exp_num = str(sys.argv[1])
 with open('configs/exp{}.json'.format(exp_num)) as fn:
     hyperparams = json.load(fn)
 
-#use_ckpt = False
-use_ckpt = True
+use_ckpt = False
+#use_ckpt = True
 BATCH_SIZE = int(hyperparams["batch_size"])
 train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
@@ -153,14 +153,15 @@ model = model.to(device)
 lr = hyperparams['lr']
 optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
 best_loss = 10000.0
-ckpt_loc = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/'
-ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
-ckpt_list.sort()
-if ckpt_list:
-    # sorted by time
-    most_recent = ckpt_list.pop()
-else:
-    use_ckpt = False
+if use_ckpt:
+    ckpt_loc = './models/'
+    ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
+    ckpt_list.sort()
+    if ckpt_list:
+        # sorted by time
+        most_recent = ckpt_list.pop()
+    else:
+        use_ckpt = False
 
 if use_ckpt == True:
     most_recent = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/DLV3P_exp1_1719683871.pth'

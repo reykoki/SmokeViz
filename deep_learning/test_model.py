@@ -15,7 +15,21 @@ from metrics import compute_iou, display_iou
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-data_dict_name = 'pseudo_labeled_ds.pkl'
+if len(sys.argv) < 2:
+    print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
+if len(sys.argv) > 2:
+    print("IN TEST MODE!")
+    test_mode = sys.argv[2]
+else:
+    test_mode = False
+
+
+exp_num = str(sys.argv[1])
+data_dict_name = str(sys.argv[3])
+#data_dict_name = 'pseudo_labeled_ds.pkl'
+#data_dict_name = '/projects/mecr8410/SmokeViz_code/deep_learning/dataset_pointers/midday/less_than_3hrs.pkl'
+#region = 'NE'
+#data_dict_name = '/projects/mecr8410/SmokeViz_code/deep_learning/dataset_pointers/geo_dependent/{}.pkl'.format(region)
 print(data_dict_name)
 with open(data_dict_name, 'rb') as handle:
     data_dict = pickle.load(handle)
@@ -23,11 +37,11 @@ with open(data_dict_name, 'rb') as handle:
 
 data_transforms = transforms.Compose([transforms.ToTensor()])
 
-train_set = SmokeDataset(data_dict['train'], data_transforms)
-val_set = SmokeDataset(data_dict['val'], data_transforms)
+#train_set = SmokeDataset(data_dict['train'], data_transforms)
+#val_set = SmokeDataset(data_dict['val'], data_transforms)
 test_set = SmokeDataset(data_dict['test'], data_transforms)
 
-print('there are {} training samples in this dataset'.format(len(train_set)))
+#print('there are {} training samples in this dataset'.format(len(train_set)))
 print('there are {} testing samples in this dataset'.format(len(test_set)))
 
 def save_test_results(truth_fn, preds, dir_num, iou_dict):
@@ -156,16 +170,6 @@ def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, 
     print(history)
     return model, history
 
-if len(sys.argv) < 2:
-    print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
-if len(sys.argv) > 2:
-    print("IN TEST MODE!")
-    test_mode = sys.argv[2]
-else:
-    test_mode = False
-
-
-exp_num = str(sys.argv[1])
 
 with open('configs/exp{}.json'.format(exp_num)) as fn:
     hyperparams = json.load(fn)
@@ -174,8 +178,8 @@ use_ckpt = False
 #use_ckpt = True
 BATCH_SIZE = int(hyperparams["batch_size"])
 BATCH_SIZE = 128
-train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+#train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+#val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
 
 n_epochs = 100
@@ -202,7 +206,6 @@ BCE_loss = nn.BCEWithLogitsLoss()
 if test_mode:
     print("IN TEST MODE!")
     #chkpt_pth = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/checkpoint.pth'
-    chkpt_pth = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/new_ckpt_exp1.pth'
     chkpt_pth = './models/DLV3P_exp1_1719683871.pth'
     print(chkpt_pth)
     checkpoint=torch.load(chkpt_pth)

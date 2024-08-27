@@ -1,0 +1,26 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=10G
+#SBATCH --time=2:30:00
+#SBATCH --partition=aa100
+#SBATCH --output=./logs/months.%j.log
+#SBATCH --gres=gpu:1
+#SBATCH --account=ucb437_asc1
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user="rey.koki@colorado.edu"
+
+unset SLURM_MEM_PER_NODE
+unset SLURM_MEM_PER_GPU
+
+module load cudnn/8.6
+module load cuda/12.1.1
+
+source /curc/sw/anaconda3/2023.09/bin/activate
+conda activate alps
+export LD_LIBRARY_PATH=/projects/mecr8410/software/anaconda/envs/alps/lib/python3.12/site-packages/nvidia/nccl/lib:$LD_LIBRARY_PATH
+
+python month_test_model.py 1 True
+exit 0
