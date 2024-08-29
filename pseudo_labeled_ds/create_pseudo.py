@@ -1,4 +1,5 @@
 import shutil
+import cartopy.crs as ccrs
 import glob
 import torch
 from torch.utils.data import DataLoader
@@ -17,6 +18,7 @@ from matplotlib import pyplot as plt
 from pyresample import create_area_def
 import geopandas
 from satpy import Scene
+from satpy.writers import get_enhanced_image
 from PIL import Image, ImageOps
 import os
 import random
@@ -39,7 +41,7 @@ smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke
 global ray_par_dir
 ray_par_dir = "/scratch/alpine/mecr8410/tmp/"
 global data_par_dir
-data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_data/'
+data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_2024/'
 
 def get_file_list(idx):
     truth_file_list = []
@@ -295,6 +297,13 @@ def get_extent(center):
     y1 = center.y + 2.0e5
     return [x0, y0, x1, y1]
 
+def get_lcc_proj():
+    lcc_proj = ccrs.LambertConformal(central_longitude=262.5,
+                                    central_latitude=38.5,
+                                    standard_parallels=(38.5, 38.5),
+                                    globe=ccrs.Globe(semimajor_axis=6371229,
+                                    semiminor_axis=6371229))
+    return lcc_proj
 
 def get_scn(fns, extent):
     scn = Scene(reader='abi_l1b', filenames=fns)
@@ -302,7 +311,7 @@ def get_scn(fns, extent):
     scn.load(['cimss_true_color_sunz_rayleigh'], generate=False)
     my_area = create_area_def(area_id='lccCONUS',
                               description='Lambert conformal conic for the contiguous US',
-                              projection="+proj=lcc +lat_1=33 +lat_2=45 +lat_0=39 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs",
+                              projection=get_lcc_proj(),
                               resolution=1000,
                               area_extent=extent)
 
@@ -313,8 +322,7 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     print('idx: ', idx0)
     fn_head = sat_fns[0].split('C01_')[-1].split('.')[0].split('_c2')[0]
 
-    lcc_str = "+proj=lcc +lat_1=33 +lat_2=45 +lat_0=39 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
-    lcc_proj = pyproj.CRS.from_user_input(lcc_str)
+    lcc_proj = get_lcc_proj()
 
     smoke_lcc = smoke.to_crs(lcc_proj)
     centers = smoke_lcc.centroid
@@ -336,8 +344,6 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
             return fn_head
 
     composite = 'cimss_true_color_sunz_rayleigh'
-    lcc_proj = scn[composite].attrs['area'].to_cartopy_crs()
-    smoke_lcc = smoke.to_crs(lcc_proj)
     scan_start = pytz.utc.localize(scn[composite].attrs['start_time'])
     scan_end = pytz.utc.localize(scn[composite].attrs['end_time'])
     rel_smoke = pick_temporal_smoke(smoke_lcc, scan_start, scan_end)
@@ -419,6 +425,14 @@ def get_sat_files(smoke_row):
         t += timedelta(minutes=10)
         time_list.append(t)
     sat_num = get_best_sat(s_dt, e_dt, bounds)
+    G18_op_dt = pytz.utc.localize(datetime(2022, 7, 28, 0, 0))
+    G17_op_dt = pytz.utc.localize(datetime(2018, 8, 28, 0, 0))
+    G17_end_dt = pytz.utc.localize(datetime(2023, 1, 10, 0, 0))
+    if sat_num == '17' and s_dt >= G18_op_dt:
+        sat_num = '18'
+    if s_dt < G17_op_dt:
+        print("G17 not launched yet")
+        sat_num = '16'
     for curr_time in time_list:
         hr = curr_time.hour
         hr = str(hr).zfill(2)
@@ -430,15 +444,10 @@ def get_sat_files(smoke_row):
         try:
             full_filelist = fs.ls("noaa-goes{}/ABI-L1b-Rad{}/{}/{}/{}/".format(sat_num, view, yr, dn, hr))
         except Exception as e:
-            print("ERROR WITH FS LS")
-            print(sat_num, view, yr, dn, hr)
             print(e)
         if len(full_filelist) == 0:
-            if yr <= 2018:
-                sat_num = '16'
-                print("YOU WANTED 17 BUT ITS NOT LAUNCHED")
-            elif yr >= 2022:
-                sat_num = '18'
+            if len(full_filelist) == 0 and sat_num == '18' and curr_time < G17_end_dt:
+                sat_num = '17'
             try:
                 full_filelist = fs.ls("noaa-goes{}/ABI-L1b-Rad{}/{}/{}/{}/".format(sat_num, view, yr, dn, hr))
             except Exception as e:
@@ -550,9 +559,7 @@ def create_smoke_rows(smoke):
                     smoke_row['sat_fns'] = sat_fn_entry
                     smoke_rows.append(smoke_row)
 
-    print(sat_fns_to_dl)
     sat_fns_to_dl = list(set(sat_fns_to_dl))
-    x = input('stop')
     ray.init(num_cpus=12)
     ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
     ray.shutdown()
@@ -606,7 +613,6 @@ def iter_smoke(date):
         #fn_heads = run_no_ray(smoke_rows)
         ray.shutdown()
         shutil.rmtree(ray_dir)
-        x = input("STOP")
         find_best_data(yr, dn)
         if fn_heads:
             remove_files(fn_heads)
