@@ -33,6 +33,14 @@ from datetime import timedelta
 from grab_smoke import get_smoke
 from get_sat import get_best_sat
 
+
+global smoke_dir
+smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke/"
+global ray_par_dir
+ray_par_dir = "/scratch/alpine/mecr8410/tmp/"
+global data_par_dir
+data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_data/'
+
 def get_file_list(idx):
     truth_file_list = []
     truth_file_list = glob.glob('{}truth/*/*/*_{}.tif'.format(dn_dir, idx))
@@ -190,18 +198,14 @@ def reshape(A, idx, size=256):
 def get_norm(data):
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
-def save_data(R, G, B, idx, fn_data, size=256):
-    R = reshape(R, idx, size)
-    G = reshape(G, idx, size)
-    B = reshape(B, idx, size)
-    layers = np.dstack([R, G, B])
-    total = np.sum(R) + np.sum(G) + np.sum(B)
-
-    print("total:", total)
-    if total > 100 and total < 1e5:
-        skimage.io.imsave(fn_data, layers)
+def save_data(RGB, idx, fn_data, size=256):
+    RGB = reshape(RGB, idx, size)
+    total = np.sum(RGB)
+    if np.sum(total) > 100 and np.sum(total) < 6e5:
+        skimage.io.imsave(fn_data, RGB)
         return True
-    return False
+    else:
+        return False
 
 def normalize(data):
     return (data - np.nanmin(data)) / (np.nanmax(data) - np.nanmin(data))
@@ -343,16 +347,12 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     y = scn[composite].coords['y']
     lon, lat = scn[composite].attrs['area'].get_lonlats()
 
-    corr_data = scn.save_dataset(composite, compute=False)
+    corr_data = get_enhanced_image(scn[composite]).data.compute().data
+    RGB = np.einsum('ijk->jki', corr_data)
+    RGB[np.isnan(RGB)] = 0
+
     img_shape = scn[composite].shape
 
-    R = corr_data[0][0].compute()
-    G = corr_data[0][1].compute()
-    B = corr_data[0][2].compute()
-
-    R = normalize(R)
-    G = normalize(G)
-    B = normalize(B)
 
     xx = np.tile(x, (len(y),1))
     yy = np.tile(y, (len(x),1)).T
@@ -364,7 +364,7 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
         tif_fn_truth = dn_dir + 'truth/{}/{}/{}_{}.tif'.format(yr, density, fn_head, idx0)
         tif_fn_data = dn_dir + 'data/{}/{}/{}_{}.tif'.format(yr, density, fn_head, idx0)
         tif_fn_coords = dn_dir + 'coords/{}/{}/{}_{}.tif'.format(yr, density, fn_head, idx0)
-        data_saved = save_data(R, G, B, idx, tif_fn_data)
+        data_saved = save_data(RGB, idx, tif_fn_data)
         if data_saved:
             truth_saved  = get_truth(x, y, lcc_proj, rel_smoke, idx, png_fn_truth, tif_fn_truth, center, img_shape)
             if truth_saved:
@@ -460,19 +460,26 @@ def get_sat_files(smoke_row):
 
 def get_file_locations(use_fns):
     file_locs = []
+    goes_dir = dn_dir + 'goes_temp/'
+    for file_path in use_fns:
+        dl_loc = goes_dir+file_path.split('/')[-1]
+        if os.path.exists(dl_loc):
+            file_locs.append(dl_loc)
+        else:
+            print('{} doesnt exist'.format(dl_loc))
+    return file_locs
+
+@ray.remote
+def download_sat_files(sat_file):
     fs = s3fs.S3FileSystem(anon=True)
     goes_dir = dn_dir + 'goes_temp/'
-    print(use_fns)
-    for file_path in use_fns:
-        fn = file_path.split('/')[-1]
-        dl_loc = goes_dir+fn
-        file_locs.append(dl_loc)
-        if os.path.exists(dl_loc):
-            print("{} already exists".format(fn))
-        else:
-            print('downloading {}'.format(fn))
-            fs.get(file_path, dl_loc)
-    return file_locs
+    fn = sat_file.split('/')[-1]
+    dl_loc = goes_dir+fn
+    if os.path.exists(dl_loc) is False:
+        print('downloading {}'.format(fn))
+        fs.get(sat_file, dl_loc)
+    return
+
 
 @ray.remote
 def iter_rows(smoke_row):
@@ -527,19 +534,36 @@ def create_smoke_rows(smoke):
 
     smoke['Start'] = smoke['Start'].apply(smoke_utc)
     smoke['End'] = smoke['End'].apply(smoke_utc)
+    sat_fns_to_dl = []
+
     for idx, row in smoke.iterrows():
         rand_xy = get_random_xy()
         ts_start = smoke.loc[idx]['Start']
         print(ts_start)
         row_yr = ts_start.strftime('%Y')
-        smoke_row = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy}
+        smoke_row = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': []}
         fn_heads, sat_fns = get_sat_files(smoke_row)
         if sat_fns:
             if doesnt_already_exists(row_yr, fn_heads, idx, row['Density']):
                 for sat_fn_entry in sat_fns:
-                    file_locs = get_file_locations(sat_fn_entry)
-                    smoke_row['sat_file_locs'] = file_locs
+                    sat_fns_to_dl.extend(sat_fn_entry)
+                    smoke_row['sat_fns'] = sat_fn_entry
                     smoke_rows.append(smoke_row)
+
+    print(sat_fns_to_dl)
+    sat_fns_to_dl = list(set(sat_fns_to_dl))
+    x = input('stop')
+    ray.init(num_cpus=12)
+    ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
+    ray.shutdown()
+
+    smoke_rows_final = []
+    for smoke_row in smoke_rows:
+            file_locs = get_file_locations(smoke_row['sat_fns'])
+            if len(file_locs) == 3:
+                smoke_row['sat_file_locs'] = file_locs
+                smoke_rows_final.append(smoke_row)
+
     return smoke_rows
 
 # remove large satellite files and the tif files created during corrections
@@ -569,13 +593,12 @@ def iter_smoke(date):
     print('------')
     print(dt)
     print('------')
-    smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke/"
     smoke = get_smoke(dt, smoke_dir)
 
     if smoke is not None:
         smoke_rows = create_smoke_rows(smoke)
         print(smoke_rows)
-        ray_dir = "/scratch/alpine/mecr8410/tmp/{}{}".format(yr,dn)
+        ray_dir = "{}{}{}".format(ray_par_dir,yr,dn)
         if not os.path.isdir(ray_dir):
             os.mkdir(ray_dir)
         ray.init(num_cpus=8, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1')
@@ -597,7 +620,7 @@ def main(start_dn, end_dn, yr):
         dn = str(dn).zfill(3)
         dates.append([dn, yr])
     for date in dates:
-        dn_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_data/temp_data/{}{}/'.format(date[1], date[0])
+        dn_dir = '{}/temp_data/{}{}/'.format(data_par_dir, date[1], date[0])
         if not os.path.isdir(dn_dir):
             os.mkdir(dn_dir)
             MakeDirs(dn_dir, yr)
