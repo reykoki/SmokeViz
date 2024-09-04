@@ -41,7 +41,7 @@ smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke
 global ray_par_dir
 ray_par_dir = "/scratch/alpine/mecr8410/tmp/"
 global data_par_dir
-data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_2024/'
+data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/SmokeViz/'
 
 def get_file_list(idx):
     truth_file_list = []
@@ -106,7 +106,7 @@ def run_model(idx):
             return  best_truth_fn[0]
 
         fn = truth_fn[0].split('/')[-1]
-        bad_fn = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_data/low_iou/{}".format(fn)
+        bad_fn = "{}low_iou/{}".format(data_par_dir, fn)
         with open(bad_fn, 'w') as fp:
             pass
         return None
@@ -162,13 +162,12 @@ def find_best_data(yr, dn):
             mv_files(best_fn, yr_dn, idx)
 
 def doesnt_already_exists(yr, fn_heads, idx, density):
-    final_dest = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/filtered_data/"
     for fn_head in fn_heads:
-        file_list = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(final_dest, yr, density, fn_head, idx))
+        file_list = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(data_par_dir, yr, density, fn_head, idx))
         if len(file_list) > 0:
             print("FILE THAT ALREADY EXIST:", file_list[0], flush=True)
             return False
-        file_list = glob.glob('{}low_iou/{}_{}.tif'.format(final_dest, fn_head, idx))
+        file_list = glob.glob('{}low_iou/{}_{}.tif'.format(data_par_dir, fn_head, idx))
         if len(file_list) > 0:
             print("THIS ANNOTATION FAILED:", file_list[0], flush=True)
             return False
@@ -202,11 +201,12 @@ def get_norm(data):
 
 def save_data(RGB, idx, fn_data, size=256):
     RGB = reshape(RGB, idx, size)
-    total = np.sum(RGB)
-    if np.sum(total) > 100 and np.sum(total) < 6e5:
+    total = np.sum(np.sum(RGB))
+    if total > 100 and total < 6e5:
         skimage.io.imsave(fn_data, RGB)
         return True
     else:
+        print("TOTAL SUM: ", total)
         return False
 
 def normalize(data):
@@ -245,7 +245,7 @@ def get_centroid(center, x, y, img_shape, rand_xy):
 def plot_coords(lat, lon, idx, tif_fn):
     lat_coords = reshape(lat, idx)
     lon_coords = reshape(lon, idx)
-    coords_layers = np.dstack([lat_coords, lon_coords])
+    coords_layers = np.dstack([np.round(lat_coords, 2), np.round(lon_coords, 2)])
     skimage.io.imsave(tif_fn, coords_layers)
     #print(coords_layers)
 
@@ -266,7 +266,7 @@ def plot_truth(x, y, lcc_proj, smoke, png_fn, idx, img_shape):
 
     truth = np.asarray(bw).astype('i')
     truth = reshape(truth, idx)
-    os.remove(png_fn)
+    #os.remove(png_fn)
     return truth
 
 def get_truth(x, y, lcc_proj, smoke, idx, png_fn, tif_fn, center, img_shape):
@@ -321,9 +321,9 @@ def get_scn(fns, extent):
 def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     print('idx: ', idx0)
     fn_head = sat_fns[0].split('C01_')[-1].split('.')[0].split('_c2')[0]
+    print(fn_head)
 
     lcc_proj = get_lcc_proj()
-
     smoke_lcc = smoke.to_crs(lcc_proj)
     centers = smoke_lcc.centroid
     center = centers.loc[idx0]
@@ -331,7 +331,6 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
         extent = get_extent(center)
     except:
         return fn_head
-
     try:
         scn = get_scn(sat_fns, extent)
     except:
@@ -375,7 +374,9 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
             truth_saved  = get_truth(x, y, lcc_proj, rel_smoke, idx, png_fn_truth, tif_fn_truth, center, img_shape)
             if truth_saved:
                 plot_coords(lat, lon, idx, tif_fn_coords)
-    return fn_head
+    del scn
+    del RGB
+    return
 
 
 def get_closest_file(fns, best_time, sat_num):
@@ -403,16 +404,9 @@ def get_closest_file(fns, best_time, sat_num):
     return use_fns
 
 
-def get_sat_files(smoke_row):
-    smoke = smoke_row['smoke']
-    idx = smoke_row['idx']
-    bounds = smoke_row['bounds']
-    density = smoke_row['density']
-    row = smoke.loc[idx]
+def get_sat_files(s_dt, e_dt, bounds):
 
     fs = s3fs.S3FileSystem(anon=True)
-    s_dt = row['Start']
-    e_dt = row['End']
     tt = s_dt.timetuple()
     dn = tt.tm_yday
     dn = str(dn).zfill(3)
@@ -490,7 +484,7 @@ def download_sat_files(sat_file):
     return
 
 
-@ray.remote
+@ray.remote(max_calls=1)
 def iter_rows(smoke_row):
     smoke = smoke_row['smoke']
     idx = smoke_row['idx']
@@ -500,26 +494,20 @@ def iter_rows(smoke_row):
     rand_xy = smoke_row['rand_xy']
     file_locs = smoke_row['sat_file_locs']
     if len(file_locs) > 0:
-        fns = create_data_truth(file_locs, smoke, idx, yr, density, rand_xy)
-        return fns
+        create_data_truth(file_locs, smoke, idx, yr, density, rand_xy)
 
 def run_no_ray(smoke_rows):
     for smoke_row in smoke_rows:
-        fn_heads = iter_rows(smoke_row)
-    return fn_heads
+        iter_rows(smoke_row)
+    return
 
 def run_remote(smoke_rows):
     try:
-        fn_heads = ray.get([iter_rows.remote(smoke_row) for smoke_row in smoke_rows])
-        return fn_heads
+        ray.get([iter_rows.remote(smoke_row) for smoke_row in smoke_rows])
+        return
     except Exception as e:
         print(e)
-        fn_heads = []
-        for smoke_row in smoke_rows:
-            sat_fns = smoke_row['sat_file_locs']
-            fn_head = sat_fns[0].split('C01_')[-1].split('.')[0].split('_c2')[0]
-            fn_heads.append(fn_head)
-        return fn_heads
+        return
 
 # we need a consistent random shift in the dataset per each annotation
 def get_random_xy(size=256):
@@ -548,44 +536,31 @@ def create_smoke_rows(smoke):
     for idx, row in smoke.iterrows():
         rand_xy = get_random_xy()
         ts_start = smoke.loc[idx]['Start']
+        ts_end = smoke.loc[idx]['End']
         print(ts_start)
         row_yr = ts_start.strftime('%Y')
-        smoke_row = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': []}
-        fn_heads, sat_fns = get_sat_files(smoke_row)
+        fn_heads, sat_fns = get_sat_files(ts_start, ts_end, bounds.loc[idx])
         if sat_fns:
             if doesnt_already_exists(row_yr, fn_heads, idx, row['Density']):
                 for sat_fn_entry in sat_fns:
                     sat_fns_to_dl.extend(sat_fn_entry)
-                    smoke_row['sat_fns'] = sat_fn_entry
-                    smoke_rows.append(smoke_row)
+                    smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry}
+                    smoke_rows.append(smoke_row_ind)
 
     sat_fns_to_dl = list(set(sat_fns_to_dl))
-    ray.init(num_cpus=12)
-    ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
-    ray.shutdown()
+    if sat_fns_to_dl:
+        ray.init(num_cpus=16)
+        ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
+        ray.shutdown()
 
     smoke_rows_final = []
     for smoke_row in smoke_rows:
-            file_locs = get_file_locations(smoke_row['sat_fns'])
-            if len(file_locs) == 3:
-                smoke_row['sat_file_locs'] = file_locs
-                smoke_rows_final.append(smoke_row)
+        file_locs = get_file_locations(smoke_row['sat_fns'])
+        if len(file_locs) == 3:
+            smoke_row['sat_file_locs'] = file_locs
+            smoke_rows_final.append(smoke_row)
 
-    return smoke_rows
-
-# remove large satellite files and the tif files created during corrections
-def remove_files(fn_heads):
-    fn_heads = list(set(fn_heads))
-    print("REMOVING FILES")
-    print(fn_heads)
-    for head in fn_heads:
-        for fn in glob.glob(dn_dir + 'goes_temp/*{}*'.format(head)):
-            os.remove(fn)
-        s = head.split('s')[1][:13]
-        dt = pytz.utc.localize(datetime.strptime(s, '%Y%j%H%M%S'))
-        tif_fn = glob.glob('cimss_true_color_sunz_rayleigh_{}{}{}_{}{}{}.tif'.format(dt.strftime('%Y'), dt.strftime('%m'), dt.strftime('%d'), dt.strftime('%H'), dt.strftime('%M'), dt.strftime('%S')))
-        if tif_fn:
-            os.remove(tif_fn[0])
+    return smoke_rows_final
 
 # analysts can only label data that is taken during the daytime, we want to filter for geos data that was within the timeframe the analysts are looking at
 def iter_smoke(date):
@@ -608,14 +583,12 @@ def iter_smoke(date):
         ray_dir = "{}{}{}".format(ray_par_dir,yr,dn)
         if not os.path.isdir(ray_dir):
             os.mkdir(ray_dir)
-        ray.init(num_cpus=8, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1')
-        fn_heads = run_remote(smoke_rows)
-        #fn_heads = run_no_ray(smoke_rows)
+        ray.init(num_cpus=8, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
+        run_remote(smoke_rows)
+        #run_no_ray(smoke_rows)
         ray.shutdown()
         shutil.rmtree(ray_dir)
         find_best_data(yr, dn)
-        if fn_heads:
-            remove_files(fn_heads)
 
 
 def main(start_dn, end_dn, yr):
@@ -626,7 +599,7 @@ def main(start_dn, end_dn, yr):
         dn = str(dn).zfill(3)
         dates.append([dn, yr])
     for date in dates:
-        dn_dir = '{}/temp_data/{}{}/'.format(data_par_dir, date[1], date[0])
+        dn_dir = '{}temp_data/{}{}/'.format(data_par_dir, date[1], date[0])
         if not os.path.isdir(dn_dir):
             os.mkdir(dn_dir)
             MakeDirs(dn_dir, yr)
