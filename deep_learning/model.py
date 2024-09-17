@@ -14,7 +14,10 @@ import segmentation_models_pytorch as smp
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-with open('./dataset_pointers/make_list/pseudo_labeled.pkl', 'rb') as handle:
+#data_pointer_path = './dataset_pointers/make_list/pseudo_labeled.pkl'
+data_pointer_path = '/projects/mecr8410/SmokeViz_code/deep_learning/dataset_pointers/smokeviz/SmokeViz.pkl'
+
+with open(data_pointer_path, 'rb') as handle:
     data_dict = pickle.load(handle)
 
 data_transforms = transforms.Compose([transforms.ToTensor()])
@@ -78,7 +81,7 @@ def val_model(dataloader, model, BCE_loss):
     print("Validation Loss: {}".format(round(final_loss,8)), flush=True)
     return final_loss
 
-def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc):
+def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc, best_loss):
     history = dict(train=[], val=[])
     BCE_loss = nn.BCEWithLogitsLoss()
 
@@ -108,17 +111,19 @@ def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, 
         history['val'].append(val_loss)
         history['train'].append(epoch_loss)
 
+        print("prev best loss:", best_loss)
         if val_loss < best_loss:
+            print("better loss")
             best_loss = val_loss
-            checkpoint = {
-                    'epoch': epoch + 1,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': val_loss
-                    }
-            ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_loc, arch, exp_num, int(time.time()))
-            torch.save(checkpoint, ckpt_pth)
-            print('SAVING MODEL:\n', ckpt_pth, flush=True)
+        checkpoint = {
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': val_loss
+                }
+        ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_loc, arch, exp_num, int(time.time()))
+        torch.save(checkpoint, ckpt_pth)
+        print('SAVING MODEL:\n', ckpt_pth, flush=True)
     print(history)
     return model, history
 
@@ -132,8 +137,8 @@ exp_num = str(sys.argv[1])
 with open('configs/exp{}.json'.format(exp_num)) as fn:
     hyperparams = json.load(fn)
 
-use_ckpt = False
-#use_ckpt = True
+#use_ckpt = False
+use_ckpt = True
 BATCH_SIZE = int(hyperparams["batch_size"])
 train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
@@ -153,23 +158,25 @@ model = model.to(device)
 lr = hyperparams['lr']
 optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
 best_loss = 10000.0
+ckpt_loc = './models/'
+
 if use_ckpt:
-    ckpt_loc = './models/'
     ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
     ckpt_list.sort()
     if ckpt_list:
         # sorted by time
         most_recent = ckpt_list.pop()
+        most_recent = './models/DLV3P_exp1_1719683871.pth'
+        most_recent = './models/DeepLabV3Plus_exp1_1726214171.pth'
+        print('using this checkpoint: ', most_recent)
+        checkpoint=torch.load(most_recent)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+        best_loss = checkpoint['loss']
     else:
         use_ckpt = False
 
-if use_ckpt == True:
-    most_recent = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/DLV3P_exp1_1719683871.pth'
-    print('using this checkpoint: ', most_recent)
-    checkpoint=torch.load(most_recent)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    start_epoch = checkpoint['epoch']
-    best_loss = checkpoint['loss']
 
-train_model(train_loader, val_loader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc)
+train_model(train_loader, val_loader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc, best_loss)
+
