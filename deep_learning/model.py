@@ -1,4 +1,5 @@
 import pickle
+import os
 import glob
 import time
 import sys
@@ -11,19 +12,21 @@ from SmokeDataset import SmokeDataset
 from torchvision import transforms
 import segmentation_models_pytorch as smp
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+import torch.multiprocessing as mp
+import torch.optim as optim
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
-with open('./dataset_pointers/make_list/pseudo_labeled.pkl', 'rb') as handle:
-    data_dict = pickle.load(handle)
 
-data_transforms = transforms.Compose([transforms.ToTensor()])
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    torch.cuda.set_device(rank)
+    # initialize the process group
+    dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
-train_set = SmokeDataset(data_dict['train'], data_transforms)
-val_set = SmokeDataset(data_dict['val'], data_transforms)
-test_set = SmokeDataset(data_dict['test'], data_transforms)
 
-print('there are {} training samples in this dataset'.format(len(train_set)))
 
 def compute_iou(pred, true, level, iou_dict):
     pred = torch.sigmoid(pred)
@@ -34,7 +37,7 @@ def compute_iou(pred, true, level, iou_dict):
         iou = intersection / union
         iou_dict[level]['int'] += intersection
         iou_dict[level]['union'] += union
-        print('{} density smoke gives: {} IoU'.format(level, iou))
+        #print('{} density smoke gives: {} IoU'.format(level, iou))
         return iou_dict
     except Exception as e:
         print(e)
@@ -56,6 +59,7 @@ def val_model(dataloader, model, BCE_loss):
     torch.set_grad_enabled(False)
     total_loss = 0.0
     iou_dict= {'high': {'int': 0, 'union':0}, 'medium': {'int': 0, 'union':0}, 'low': {'int': 0, 'union':0}}
+    device = torch.device(f"cuda:{dist.get_rank()}")
     for data in dataloader:
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(device, dtype=torch.float), batch_labels.to(device, dtype=torch.float)
@@ -78,11 +82,16 @@ def val_model(dataloader, model, BCE_loss):
     print("Validation Loss: {}".format(round(final_loss,8)), flush=True)
     return final_loss
 
-def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc):
-    history = dict(train=[], val=[])
+def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc, optimizer, rank, best_loss):
+    #history = dict(train=[], val=[])
     BCE_loss = nn.BCEWithLogitsLoss()
-
+    #device = torch.device(f"cuda:{dist.get_rank()}")
+    device = torch.device(f"cuda:{rank}")
     for epoch in range(start_epoch, n_epochs):
+        b_sz = len(next(iter(train_dataloader))[0])
+        print(f"Epoch {epoch} | Batchsize: {b_sz} | Steps: {len(train_dataloader)}")
+        train_dataloader.sampler.set_epoch(epoch)
+        val_dataloader.sampler.set_epoch(epoch)
         total_loss = 0.0
         print('--------------\nStarting Epoch: {}'.format(epoch), flush=True)
         model.train()
@@ -90,6 +99,9 @@ def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, 
         #for batch_data, batch_labels in train_dataloader:
         for data in train_dataloader:
             batch_data, batch_labels = data
+            print(time.time())
+            print(len(batch_data))
+            print(device)
             batch_data, batch_labels = batch_data.to(device, dtype=torch.float), batch_labels.to(device, dtype=torch.float)
             #print(torch.isnan(batch_data).any())
             optimizer.zero_grad() # zero the parameter gradients
@@ -105,10 +117,10 @@ def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, 
         epoch_loss = total_loss/len(train_dataloader)
         print("Training Loss:   {0}".format(round(epoch_loss,8), epoch+1), flush=True)
         val_loss = val_model(val_dataloader, model, BCE_loss)
-        history['val'].append(val_loss)
-        history['train'].append(epoch_loss)
+        #history['val'].append(val_loss)
+        #history['train'].append(epoch_loss)
 
-        if val_loss < best_loss:
+        if val_loss < best_loss and rank==0:
             best_loss = val_loss
             checkpoint = {
                     'epoch': epoch + 1,
@@ -119,57 +131,81 @@ def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, 
             ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_loc, arch, exp_num, int(time.time()))
             torch.save(checkpoint, ckpt_pth)
             print('SAVING MODEL:\n', ckpt_pth, flush=True)
-    print(history)
-    return model, history
+    #return model, history
 
-if len(sys.argv) < 2:
-    print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
-if len(sys.argv) > 2:
-    test_mode = sys.argv[2]
+def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4):
+    data_transforms = transforms.Compose([transforms.ToTensor()])
+    dataset = SmokeDataset(data_dict[cat], data_transforms)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler)
+    return dataloader
 
-exp_num = str(sys.argv[1])
+def main(rank, world_size, exp_num):
 
-with open('configs/exp{}.json'.format(exp_num)) as fn:
-    hyperparams = json.load(fn)
+    with open('configs/exp{}.json'.format(exp_num)) as fn:
+        hyperparams = json.load(fn)
 
-use_ckpt = False
-#use_ckpt = True
-BATCH_SIZE = int(hyperparams["batch_size"])
-train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
-val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
-test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
+    with open('./dataset_pointers/make_list/subsample.pkl', 'rb') as handle:
+        data_dict = pickle.load(handle)
 
-n_epochs = 100
-start_epoch = 0
-arch = hyperparams['architecture']
-model = smp.create_model( # create any model architecture just with parameters, without using its class
-        arch=arch,
-        encoder_name=hyperparams['encoder'],
-        encoder_weights="imagenet", # use `imagenet` pre-trained weights for encoder initialization
-        in_channels=3, # model input channels
-        classes=3, # model output channels
-)
-model = model.to(device)
-lr = hyperparams['lr']
-optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
-best_loss = 10000.0
-if use_ckpt:
+    setup(rank, world_size)
+    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=int(hyperparams['batch_size']))
+    val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=int(hyperparams['batch_size']))
+
+    n_epochs = 100
+    start_epoch = 0
+    arch = hyperparams['architecture']
+    lr = hyperparams['lr']
+    best_loss = 10000.0
+
+    model = smp.create_model( # create any model architecture just with parameters, without using its class
+            arch=arch,
+            encoder_name=hyperparams['encoder'],
+            encoder_weights="imagenet", # use `imagenet` pre-trained weights for encoder initialization
+            in_channels=3, # model input channels
+            classes=3, # model output channels
+    )
+    model = model.to(rank)
+    #model = DDP(model, device_ids=[rank], output_device=rank)
+    model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+
+    optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
+
     ckpt_loc = './models/'
+    train_model(train_loader, val_loader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc, optimizer, rank, best_loss)
+
+    dist.destroy_process_group()
+
+
+
+def dont_use():
+    use_ckpt = False
+#use_ckpt = True
+
     ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
-    ckpt_list.sort()
-    if ckpt_list:
-        # sorted by time
-        most_recent = ckpt_list.pop()
-    else:
-        use_ckpt = False
+    if use_ckpt:
+        ckpt_list.sort()
+        if ckpt_list:
+            # sorted by time
+            most_recent = ckpt_list.pop()
+        else:
+            use_ckpt = False
 
-if use_ckpt == True:
-    most_recent = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/DLV3P_exp1_1719683871.pth'
-    print('using this checkpoint: ', most_recent)
-    checkpoint=torch.load(most_recent)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    start_epoch = checkpoint['epoch']
-    best_loss = checkpoint['loss']
+    if use_ckpt == True:
+        most_recent = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/DLV3P_exp1_1719683871.pth'
+        print('using this checkpoint: ', most_recent)
+        checkpoint=torch.load(most_recent)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+        best_loss = checkpoint['loss']
 
-train_model(train_loader, val_loader, model, n_epochs, start_epoch, exp_num, arch, ckpt_loc)
+
+if __name__ == '__main__':
+# suppose we have 3 gpus
+    world_size = 8
+    if len(sys.argv) < 2:
+        print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
+    exp_num = str(sys.argv[1])
+    mp.spawn(main, args=(world_size, exp_num), nprocs=world_size, join=True)
+
