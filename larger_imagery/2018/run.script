@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=60G
+#SBATCH --time=2:00:00
+#SBATCH --partition=amilan
+#SBATCH --qos=normal
+#SBATCH --account=ucb437_asc1
+#SBATCH --export=NONE
+#SBATCH --job-name=interactive
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user="rey.koki@colorado.edu"
+
+
+module purge 
+
+ulimit -s unlimited
+
+module load gcc/10.3.0
+source /curc/sw/anaconda3/latest
+conda activate g2g 
+
+export RAY_DEDUP_LOGS=0
+
+sleep 2h
+exit 0
+
