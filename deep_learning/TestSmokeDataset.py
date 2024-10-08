@@ -1,8 +1,5 @@
-from PIL import Image
-#from torchvision import transforms
 import torch
-from torch.utils.data import Dataset, DataLoader
-
+from torch.utils.data import Dataset
 import skimage
 
 
