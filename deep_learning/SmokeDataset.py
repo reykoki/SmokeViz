@@ -1,8 +1,5 @@
-from PIL import Image
-#from torchvision import transforms
 import torch
-from torch.utils.data import Dataset, DataLoader
-
+from torch.utils.data import Dataset
 import skimage
 
 
@@ -21,6 +18,6 @@ class SmokeDataset(Dataset):
         truth_img = skimage.io.imread(truth_fn, plugin='tifffile')
         data_tensor = self.transform(data_img)#.unsqueeze_(0)
         truth_tensor = self.transform(truth_img)#.unsqueeze_(0)
-        truth_tensor = truth_tensor.type(torch.float)
+        truth_tensor = truth_tensor.type(torch.float32)
 
         return data_tensor, truth_tensor

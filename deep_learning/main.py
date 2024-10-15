@@ -84,7 +84,8 @@ def val_model(dataloader, model, criterion):
         low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
     final_loss = total_loss/len(dataloader)
     print("Validation Loss: {}".format(round(final_loss,8)), flush=True)
-    return final_loss, high_iou, med_iou, low_iou
+    return final_loss, high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
+
 
 def train_model(train_dataloader, model, criterion, optimizer):
     rank = torch.device(f"cuda:{dist.get_rank()}")
@@ -127,32 +128,43 @@ def main(rank, world_size, exp_num):
     with open('configs/exp{}.json'.format(exp_num)) as fn:
         hyperparams = json.load(fn)
 
-    with open('./dataset_pointers/make_list/pseudo_labeled.pkl', 'rb') as handle:
+    #with open('./dataset_pointers/make_list/pseudo_labeled.pkl', 'rb') as handle:
+    #with open('./dataset_pointers/make_list/subsample.pkl', 'rb') as handle:
+    #with open('./dataset_pointers/both_sats/both_sats.pkl', 'rb') as handle:
+    with open('./dataset_pointers/smokeviz/SmokeViz.pkl', 'rb') as handle:
         data_dict = pickle.load(handle)
-
-    setup(rank, world_size)
-    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=int(hyperparams['batch_size']))
-    val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=int(hyperparams['batch_size']))
 
     n_epochs = 100
     start_epoch = 0
     arch = hyperparams['architecture']
     lr = hyperparams['lr']
 
+    setup(rank, world_size)
+    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=int(hyperparams['batch_size']))
+    val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=int(hyperparams['batch_size']))
+    if rank==0:
+        print('number of train samples:', len(train_loader))
+        print('number of val samples:', len(val_loader))
+        print('arch', arch)
+        print('encoder', hyperparams['encoder'])
+
+
     model = smp.create_model( # create any model architecture just with parameters, without using its class
             arch=arch,
             encoder_name=hyperparams['encoder'],
-            encoder_weights="imagenet", # use `imagenet` pre-trained weights for encoder initialization
+            #encoder_weights="imagenet", # use `imagenet` pre-trained weights for encoder initialization
+            encoder_weights=None, # use `imagenet` pre-trained weights for encoder initialization
             in_channels=3, # model input channels
             classes=3, # model output channels
     )
     model = model.to(rank)
+    #model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
     model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
 
     criterion = nn.BCEWithLogitsLoss().to(rank)
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
 
-
+    prev_iou = 0
     ckpt_loc = './models/'
     for epoch in range(start_epoch, n_epochs):
 
@@ -168,16 +180,19 @@ def main(rank, world_size, exp_num):
 
         if rank==0:
             print("time to run epoch:", np.round(time.time() - start, 4))
-            iou = get_iou(high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce())
-            checkpoint = {
-                    'epoch': epoch + 1,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': iou
-                    }
-            ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_loc, arch, exp_num, int(time.time()))
-            torch.save(checkpoint, ckpt_pth)
-            print('SAVING MODEL:\n', ckpt_pth, flush=True)
+            iou = get_iou(high_iou, med_iou, low_iou)
+            if iou > prev_iou:
+                checkpoint = {
+                        'epoch': epoch + 1,
+                        'model_state_dict': model.module.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': val_loss,
+                        'iou': iou
+                        }
+                ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_loc, arch, exp_num, int(time.time()))
+                torch.save(checkpoint, ckpt_pth)
+                print('SAVING MODEL:\n', ckpt_pth, flush=True)
+                prev_iou = iou
 
     dist.destroy_process_group()
 
