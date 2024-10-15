@@ -29,7 +29,6 @@ from datetime import timedelta
 from grab_smoke import get_smoke
 from get_sat import get_best_sat
 
-
 global smoke_dir
 smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke/"
 global ray_par_dir
@@ -45,7 +44,6 @@ def mv_files(truth_src):
     shutil.copyfile(truth_src, truth_dst)
     shutil.copyfile(data_src, data_dst)
 
-
 def get_sat_start_end_from_fn(fn):
     start = fn.split('_')[1][1:-1]
     fn_start_dt = datetime.strptime(start, '%Y%j%H%M%S')
@@ -57,13 +55,17 @@ def file_exists(yr, fn_heads, idx, density):
     data_dst = data_par_dir
     data_loc = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/SmokeViz/"
     for fn_head in fn_heads:
-        dst_file = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(data_dst, yr, density, fn_head, idx))
+        #dst_file = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(data_dst, yr, density, fn_head, idx))
+        fn_head_parts = fn_head.split('_')
+        sat_num = fn_head_parts[0]
+        start_scan = fn_head_parts[1]
+        dst_file = glob.glob('{}truth/{}/{}/{}_{}_*_{}.tif'.format(data_dst, yr, density, sat_num, start_scan, idx))
         if len(dst_file) > 0:
             print('YOUVE ALREADY MADE THAT FILE:', dst_file, flush=True)
             return None, None
         file_list = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(data_loc, yr, density, fn_head, idx))
         if len(file_list) > 0:
-            print("FILE THAT ALREADY EXIST:", file_list[0], flush=True)
+            print("FILE THAT EXISTS:", file_list[0], flush=True)
             fn = file_list[0].split('/')[-1]
             start_dt, sat_num = get_sat_start_end_from_fn(fn)
             return start_dt, sat_num
@@ -198,7 +200,6 @@ def get_scn(fns, extent):
                               projection=get_lcc_proj(),
                               resolution=2000,
                               area_extent=extent)
-
     new_scn = scn.resample(my_area)
     return new_scn
 
@@ -211,9 +212,6 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     smoke_lcc = smoke.to_crs(lcc_proj)
     centers = smoke_lcc.centroid
     center = centers.loc[idx0]
-    print(center)
-    print(rand_xy)
-    print(center)
 
     try:
         extent = get_extent(center, rand_xy)
@@ -222,13 +220,8 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     try:
         scn = get_scn(sat_fns, extent)
     except:
-        try:
-            print('data not done downloading!\nwait 30 seconds')
-            time.sleep(30)
-            scn = get_scn(sat_fns, extent)
-        except:
-            print('{} wouldnt download, moving on'.format(sat_fns[0]))
-            return fn_head
+        print('{} did not download, moving on'.format(sat_fns[0]))
+        return fn_head
 
     composite = 'cimss_true_color_sunz_rayleigh'
     scan_start = pytz.utc.localize(scn[composite].attrs['start_time'])
@@ -243,7 +236,6 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     lon_cent = np.round(lon[mid_pt, mid_pt], 2)
     lat_cent = np.round(lat[mid_pt, mid_pt], 2)
     fn_head = '{}_{}_{}_{}'.format(fn_head, lat_cent, lon_cent, idx0)
-    print(fn_head)
 
     corr_data = get_enhanced_image(scn[composite]).data.compute().data
     RGB = np.einsum('ijk->jki', corr_data)
@@ -255,10 +247,8 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     tif_fn_truth = dn_dir + 'truth/{}/{}/{}.tif'.format(yr, density, fn_head)
     tif_fn_data = dn_dir + 'data/{}/{}/{}.tif'.format(yr, density, fn_head)
     data_saved = save_data(RGB, tif_fn_data)
-    print(data_saved)
     if data_saved:
         truth_saved  = get_truth(x, y, lcc_proj, rel_smoke, png_fn_truth, tif_fn_truth, img_shape)
-    x = input('STOP')
     del scn
     del RGB
     return
@@ -419,21 +409,19 @@ def create_smoke_rows(smoke):
     sat_fns_to_dl = []
 
     for idx, row in smoke.iterrows():
-        if idx == 0:
-            rand_xy = get_random_xy()
-            ts_start = smoke.loc[idx]['Start']
-            ts_end = smoke.loc[idx]['End']
-            print(ts_start)
-            row_yr = ts_start.strftime('%Y')
-            fn_heads, sat_fns = get_sat_files(ts_start, ts_end, bounds.loc[idx], None)
-            if sat_fns:
-                start_dt, sat_num = file_exists(row_yr, fn_heads, idx, row['Density'])
-                if start_dt:
-                    fn_heads, sat_fns = get_sat_files(start_dt, start_dt, bounds.loc[idx], sat_num)
-                    for sat_fn_entry in sat_fns:
-                        sat_fns_to_dl.extend(sat_fn_entry)
-                        smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry}
-                        smoke_rows.append(smoke_row_ind)
+        rand_xy = get_random_xy()
+        ts_start = smoke.loc[idx]['Start']
+        ts_end = smoke.loc[idx]['End']
+        row_yr = ts_start.strftime('%Y')
+        fn_heads, sat_fns = get_sat_files(ts_start, ts_end, bounds.loc[idx], None)
+        if sat_fns:
+            start_dt, sat_num = file_exists(row_yr, fn_heads, idx, row['Density'])
+            if start_dt:
+                fn_heads, sat_fns = get_sat_files(start_dt, start_dt, bounds.loc[idx], sat_num)
+                for sat_fn_entry in sat_fns:
+                    sat_fns_to_dl.extend(sat_fn_entry)
+                    smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry}
+                    smoke_rows.append(smoke_row_ind)
 
     sat_fns_to_dl = list(set(sat_fns_to_dl))
     if sat_fns_to_dl:

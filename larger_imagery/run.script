@@ -3,11 +3,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=200G
-#SBATCH --time=6:00:00
+#SBATCH --mem=20G
+#SBATCH --time=12:00:00
 #SBATCH --partition=amilan
 #SBATCH --qos=normal
-#SBATCH --output=/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/make_data/logs_new/output.%j.log 
+#SBATCH --output=/scratch/alpine/mecr8410/logs/larger_ds/output.%j.log 
 #SBATCH --account=ucb437_asc1
 #SBATCH --export=NONE
 #SBATCH --job-name=gen_data
@@ -27,6 +27,6 @@ conda activate g2g
 
 export RAY_DEDUP_LOGS=0
 
-python create_pseudo.py $START $END $YEAR
+python create_large.py $START $END $YEAR
 exit 0
 
