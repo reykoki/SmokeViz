@@ -28,11 +28,11 @@ from datetime import timedelta
 from grab_smoke import *
 
 global smoke_dir
-smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke/"
+smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
 global ray_par_dir
-ray_par_dir = "/scratch/alpine/mecr8410/tmp/"
+ray_par_dir = "/tmp/"
 global data_par_dir
-data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/large/'
+data_par_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/large_SmokeViz/'
 
 def mv_files(truth_src):
     yr_dn = dn_dir.split('/')[-2]
@@ -187,7 +187,8 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
         return fn_head
     try:
         scn = get_scn(sat_fns, extent)
-    except:
+    except Exception as e:
+        print(e)
         print('{} did not download, moving on'.format(sat_fns[0]))
         return fn_head
 
@@ -270,7 +271,7 @@ def iter_smoke(yr, dn):
             ray_dir = "{}{}{}".format(ray_par_dir,yr,dn)
             if not os.path.isdir(ray_dir):
                 os.mkdir(ray_dir)
-            ray.init(num_cpus=8, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
+            ray.init(num_cpus=2, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
             run_remote(smoke_rows)
             #run_no_ray(smoke_rows)
             ray.shutdown()
@@ -288,6 +289,7 @@ def main(dn, yr):
         raise RuntimeError('no dn_dir!!')
     start = time.time()
     iter_smoke(yr, dn)
+    shutil.rmtree(dn_dir)
     print("Time elapsed for data creation for day {}{}: {}s".format(yr, dn, int(time.time() - start)), flush=True)
 
 if __name__ == '__main__':

@@ -23,11 +23,10 @@ from grab_smoke import get_smoke
 from get_sat import get_best_sat
 
 global smoke_dir
-smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke/"
-global ray_par_dir
-ray_par_dir = "/scratch/alpine/mecr8410/tmp/"
+smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
 global data_par_dir
-data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/large/'
+data_par_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/large_SmokeViz/'
+
 
 def mv_files(truth_src):
     yr_dn = dn_dir.split('/')[-2]
@@ -46,7 +45,7 @@ def get_sat_start_end_from_fn(fn):
 
 def file_exists(yr, fn_heads, idx, density):
     data_dst = data_par_dir
-    data_loc = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/SmokeViz/"
+    data_loc = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz/"
     for fn_head in fn_heads:
         #dst_file = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(data_dst, yr, density, fn_head, idx))
         fn_head_parts = fn_head.split('_')
@@ -225,7 +224,7 @@ def create_smoke_rows(smoke):
 
     sat_fns_to_dl = list(set(sat_fns_to_dl))
     if sat_fns_to_dl:
-        ray.init(num_cpus=16)
+        ray.init(num_cpus=6)
         ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
         ray.shutdown()
 

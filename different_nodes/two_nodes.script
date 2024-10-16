@@ -1,0 +1,11 @@
+#!/bin/bash
+
+head_jid=$(sbatch --export=DN=2,YEAR=2022 head.script | cut -d ' ' -f4)
+
+for k in {3..10};
+do
+    compute_jid=$(sbatch --dependency=afterok:${head_jid} --export=DN=${k},YEAR=2022 compute.script | cut -d ' ' -f4)
+    head_jid=$(sbatch --dependency=afterok:${compute_jid} --export=DN="$((k+1))",YEAR=2022 head.script | cut -d ' ' -f4)
+done
+
+compute_jid=$(sbatch --dependency=afterok:${head_jid} --export=DN="$((k+1))",YEAR=2022 compute.script | cut -d ' ' -f4)
