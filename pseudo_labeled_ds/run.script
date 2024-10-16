@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=20G
+#SBATCH --time=2:00:00
+#SBATCH --partition=fge
+#SBATCH --output=./logs/create.%j.log
+#SBATCH --account=rda-ghpcs
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user="reykokimonster@gmail.com"
+
+source /scratch1/RDARCH/rda-ghpcs/Annabel.Wade/miniconda3/etc/profile.d/conda.sh
+conda activate smoke
+
+python create_pseudo.py $START $END $YEAR
+exit 0
+
