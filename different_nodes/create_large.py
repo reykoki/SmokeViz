@@ -250,7 +250,9 @@ def run_remote(smoke_rows):
         print(e)
         return
 
-def iter_smoke(yr, dn):
+def iter_smoke(date):
+    dn = date[0]
+    yr = date[1]
     s = '{}/{}'.format(yr, dn)
     fmt = '%Y/%j'
     dt = pytz.utc.localize(datetime.strptime(s, fmt))
@@ -271,7 +273,7 @@ def iter_smoke(yr, dn):
             ray_dir = "{}{}{}".format(ray_par_dir,yr,dn)
             if not os.path.isdir(ray_dir):
                 os.mkdir(ray_dir)
-            ray.init(num_cpus=2, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
+            ray.init(num_cpus=24, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
             run_remote(smoke_rows)
             #run_no_ray(smoke_rows)
             ray.shutdown()
@@ -280,19 +282,26 @@ def iter_smoke(yr, dn):
             for fn in fns:
                 mv_files(fn)
 
-def main(dn, yr):
+
+def main(start_dn, end_dn, yr):
     global dn_dir
     dates = []
-    dn = str(dn).zfill(3)
-    dn_dir = '{}temp_data/{}{}/'.format(data_par_dir, yr, dn)
-    if not os.path.isdir(dn_dir):
-        raise RuntimeError('no dn_dir!!')
-    start = time.time()
-    iter_smoke(yr, dn)
-    shutil.rmtree(dn_dir)
-    print("Time elapsed for data creation for day {}{}: {}s".format(yr, dn, int(time.time() - start)), flush=True)
+    dns = list(range(int(start_dn), int(end_dn)+1))
+    for dn in dns:
+        dn = str(dn).zfill(3)
+        dates.append([dn, yr])
+    for date in dates:
+        dn_dir = '{}temp_data/{}{}/'.format(data_par_dir, date[1], date[0])
+        if not os.path.isdir(dn_dir):
+            raise RuntimeError('no dn_dir!!')
+        start = time.time()
+        print(date)
+        iter_smoke(date)
+        shutil.rmtree(dn_dir)
+        print("Time elapsed for data creation for day {}{}: {}s".format(date[1], date[0], int(time.time() - start)), flush=True)
 
 if __name__ == '__main__':
-    dn = sys.argv[1]
-    yr = sys.argv[2]
-    main(dn, yr)
+    start_dn = sys.argv[1]
+    end_dn = sys.argv[2]
+    yr = sys.argv[3]
+    main(start_dn, end_dn, yr)
