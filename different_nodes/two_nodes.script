@@ -1,4 +1,5 @@
 #!/bin/bash
+
 for i in "$@"
 do
 case $i in
@@ -16,9 +17,5 @@ done
 
 head_jid=$(sbatch --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} head.script | cut -d ' ' -f4)
 
-for ((k=$START;k<=$END;k++))
-do
-    compute_jid=$(sbatch --dependency=afterok:${head_jid} --export=DN=${k},YEAR=${YEAR} compute.script | cut -d ' ' -f4)
-    echo ${k} 
-done
+compute_jid=$(sbatch --dependency=afterok:${head_jid} --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} compute.script | cut -d ' ' -f4)
 
