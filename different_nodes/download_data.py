@@ -23,11 +23,10 @@ from grab_smoke import get_smoke
 from get_sat import get_best_sat
 
 global smoke_dir
-smoke_dir = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/new_data/smoke/"
-global ray_par_dir
-ray_par_dir = "/scratch/alpine/mecr8410/tmp/"
+smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
 global data_par_dir
-data_par_dir = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/large/'
+data_par_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/large_SmokeViz/'
+
 
 def mv_files(truth_src):
     yr_dn = dn_dir.split('/')[-2]
@@ -46,7 +45,7 @@ def get_sat_start_end_from_fn(fn):
 
 def file_exists(yr, fn_heads, idx, density):
     data_dst = data_par_dir
-    data_loc = "/scratch/alpine/mecr8410/semantic_segmentation_smoke/SmokeViz/"
+    data_loc = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz/"
     for fn_head in fn_heads:
         #dst_file = glob.glob('{}truth/{}/{}/{}_{}.tif'.format(data_dst, yr, density, fn_head, idx))
         fn_head_parts = fn_head.split('_')
@@ -225,7 +224,7 @@ def create_smoke_rows(smoke):
 
     sat_fns_to_dl = list(set(sat_fns_to_dl))
     if sat_fns_to_dl:
-        ray.init(num_cpus=16)
+        ray.init(num_cpus=4)
         ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
         ray.shutdown()
 
@@ -239,7 +238,9 @@ def create_smoke_rows(smoke):
     return smoke_rows_final
 
 # analysts can only label data that is taken during the daytime, we want to filter for geos data that was within the timeframe the analysts are looking at
-def iter_smoke(yr, dn):
+def iter_smoke(date):
+    dn = date[0]
+    yr = date[1]
     s = '{}/{}'.format(yr, dn)
     fmt = '%Y/%j'
     dt = pytz.utc.localize(datetime.strptime(s, fmt))
@@ -255,19 +256,26 @@ def iter_smoke(yr, dn):
         with open('{}smoke_rows_{}{}.pkl'.format(dn_dir, yr, dn), 'wb') as handle:
             pickle.dump(smoke_rows, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-def main(dn, yr):
+
+def main(start_dn, end_dn, yr):
     global dn_dir
     dates = []
-    dn = str(dn).zfill(3)
-    dn_dir = '{}temp_data/{}{}/'.format(data_par_dir, yr, dn)
-    if not os.path.isdir(dn_dir):
-        os.mkdir(dn_dir)
-        MakeDirs(dn_dir, yr)
-    start = time.time()
-    iter_smoke(yr, dn)
-    print("Time elapsed for data download for day {}{}: {}s".format(yr, dn, int(time.time() - start)), flush=True)
+    dns = list(range(int(start_dn), int(end_dn)+1))
+    for dn in dns:
+        dn = str(dn).zfill(3)
+        dates.append([dn, yr])
+    for date in dates:
+        dn_dir = '{}temp_data/{}{}/'.format(data_par_dir, date[1], date[0])
+        if not os.path.isdir(dn_dir):
+            os.mkdir(dn_dir)
+            MakeDirs(dn_dir, yr)
+        start = time.time()
+        print(date)
+        iter_smoke(date)
+        print("Time elapsed for data download for day {}{}: {}s".format(date[1], date[0], int(time.time() - start)), flush=True)
 
 if __name__ == '__main__':
-    dn = sys.argv[1]
-    yr = sys.argv[2]
-    main(dn, yr)
+    start_dn = sys.argv[1]
+    end_dn = sys.argv[2]
+    yr = sys.argv[3]
+    main(start_dn, end_dn, yr)
