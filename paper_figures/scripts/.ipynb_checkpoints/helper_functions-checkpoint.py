@@ -5,12 +5,6 @@ import pytz
 
 data_dir = './data/'
 
-def get_dt_from_fn(fn):
-    start = fn.split('_')[1][1:-1]
-    start_dt = datetime.strptime(start, '%Y%j%H%M%S')
-    dt = pytz.utc.localize(start_dt)
-    return dt
-
 def get_dt_str(dt):
     hr = dt.hour
     hr = str(hr).zfill(2)
