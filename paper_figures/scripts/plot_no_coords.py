@@ -1,9 +1,20 @@
 import matplotlib.pyplot as plt
+import pyproj
 from glob import glob
 import numpy as np
 import skimage
 from datetime import datetime
+import cartopy.crs as ccrs
 
+
+def get_proj():
+    lcc_proj = ccrs.LambertConformal(central_longitude=262.5,
+                                     central_latitude=38.5,
+                                     standard_parallels=(38.5, 38.5),
+                                     globe=ccrs.Globe(semimajor_axis=6371229,
+                                                      semiminor_axis=6371229))
+
+    return lcc_proj
 
 def get_data(fn, data_loc):
     data_fn = glob(data_loc + "data/*/*/" + fn)[0]
@@ -24,8 +35,22 @@ def get_mesh(num_pixels):
     X, Y = np.meshgrid(x,y)
     return X,Y
 
+def coords_from_fn(fn, res=2000, img_size=1024): # img_size - number of pixels
+    fn_split = fn.split('.tif')[0].split('_')
+    lat = fn_split[-3]
+    lon = fn_split[-2]
+    lcc_proj = pyproj.Proj(get_proj())
+    x, y = lcc_proj(lon,lat)
+    dist = int(img_size/2*res)
+    lon_0, lat_0 = lcc_proj(x-dist, y-dist, inverse=True) # lower left
+    lon_1, lat_1 = lcc_proj(x+dist, y+dist, inverse=True) # upper right
+    lats = np.linspace(lat_1, lat_0, 5)
+    lons = np.linspace(lon_0, lon_1, 5)
+    return lats, lons
+
 def plot_densities_from_processed_data(fn, data_loc="./sample_data/", close=False, save=False):
     RGB, truths = get_data(fn, data_loc)
+    lat, lon = coords_from_fn(fn)
     num_pixels = RGB.shape[1]
     X, Y = get_mesh(num_pixels)
     colors = ['red', 'orange', 'yellow']
@@ -35,8 +60,10 @@ def plot_densities_from_processed_data(fn, data_loc="./sample_data/", close=Fals
     for idx in reversed(range(3)):
         plt.contour(X,Y,truths[:,:,idx],levels =[.99],colors=[colors[idx]])
     plt.tight_layout(pad=0)
-    plt.yticks([])
-    plt.xticks([])
+    plt.yticks(np.linspace(0,RGB.shape[0]-1,len(lat)), np.round(lat,2), fontsize=12)
+    plt.ylabel('latitude (degrees)', fontsize=16)
+    plt.xticks(np.linspace(0,RGB.shape[0]-1,len(lon)), np.round(lon,2), fontsize=12)
+    plt.xlabel('longitude (degrees)', fontsize=16)
     plt.title(get_datetime_from_fn(fn), fontsize=18)
     plt.tight_layout(pad=0)#, h_pad=-.5)
     if save:

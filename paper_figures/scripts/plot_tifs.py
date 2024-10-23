@@ -54,6 +54,29 @@ def plot_densities_from_processed_data(fn, data_loc="./sample_data/", close=Fals
     if close:
         plt.close()
 
+def plot_densities_from_processed_data(fn, data_loc="./sample_data/", close=False, save=False):
+    RGB, truths, lat, lon = get_data(fn, data_loc)
+    num_pixels = RGB.shape[1]
+    X, Y = get_mesh(num_pixels)
+    colors = ['red', 'orange', 'yellow']
+    plt.figure(figsize=(8, 6),dpi=100)
+
+    plt.imshow(RGB)
+    for idx in reversed(range(3)):
+        plt.contour(X,Y,truths[:,:,idx],levels =[.99],colors=[colors[idx]])
+    plt.tight_layout(pad=0)
+    plt.yticks(np.linspace(0,255,5), np.round(lat,2), fontsize=12)
+    plt.ylabel('latitude (degrees)', fontsize=16)
+    plt.xticks(np.linspace(0,255,5), np.round(lon,2), fontsize=12)
+    plt.xlabel('longitude (degrees)', fontsize=16)
+    plt.title(get_datetime_from_fn(fn), fontsize=18)
+    plt.tight_layout(pad=0)#, h_pad=-.5)
+    if save:
+        plt.savefig('densities.png', dpi=300)
+    plt.show()
+    if close:
+        plt.close()
+
 def plot_RGB(fn, data_loc="./sample_data/"):
     data_fn = glob(data_loc + "data/*/*/" + fn)[0]
     print(get_datetime_from_fn(fn))
