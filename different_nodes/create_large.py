@@ -292,13 +292,14 @@ def main(start_dn, end_dn, yr):
         dates.append([dn, yr])
     for date in dates:
         dn_dir = '{}temp_data/{}{}/'.format(data_par_dir, date[1], date[0])
-        if not os.path.isdir(dn_dir):
-            raise RuntimeError('no dn_dir!!')
-        start = time.time()
-        print(date)
-        iter_smoke(date)
-        shutil.rmtree(dn_dir)
-        print("Time elapsed for data creation for day {}{}: {}s".format(date[1], date[0], int(time.time() - start)), flush=True)
+        if os.path.isdir(dn_dir):
+            start = time.time()
+            print(date)
+            iter_smoke(date)
+            shutil.rmtree(dn_dir)
+            print("Time elapsed for data creation for day {}{}: {}s".format(date[1], date[0], int(time.time() - start)), flush=True)
+        else:
+            print(dn_dir, 'does not exist, download data first!')
 
 if __name__ == '__main__':
     start_dn = sys.argv[1]
