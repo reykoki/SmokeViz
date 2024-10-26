@@ -1,6 +1,17 @@
 from pyorbital import astronomy
+import numpy as np
 import pyproj
 from datetime import timedelta
+import cartopy.crs as ccrs
+
+def get_proj():
+    lcc_proj = ccrs.LambertConformal(central_longitude=262.5,
+                                     central_latitude=38.5,
+                                     standard_parallels=(38.5, 38.5),
+                                     globe=ccrs.Globe(semimajor_axis=6371229,
+                                                      semiminor_axis=6371229))
+
+    return lcc_proj
 
 # get time list from time window
 def get_time_list(start_dt, end_dt):
@@ -21,10 +32,10 @@ def west_east_lat_lon(lat, lon, res, img_size): # img_size - number of pixels
     lon_e, lat_e = lcc_proj(x+dist, y+dist, inverse=True) # upper right
     return (lat_w, lon_w), (lat_e, lon_e)
 
-def get_best_time_from_szas(dt, w_coords, e_coords, img_times):
+def get_best_time_from_szas(w_coords, e_coords, img_times):
     mid_time = img_times[int(len(img_times)/2)]
-    sza_west = astronomy.sun_zenith_angle(mid_time, w_coords[0], w_coords[1])
-    sza_east = astronomy.sun_zenith_angle(mid_time, e_coords[0], e_coords[1])
+    sza_west = astronomy.sun_zenith_angle(mid_time, w_coords[1], w_coords[0])
+    sza_east = astronomy.sun_zenith_angle(mid_time, e_coords[1], e_coords[0])
     # closer to sunrise
     if sza_west >= sza_east:
         lat, lon = w_coords[0], w_coords[1]
@@ -34,7 +45,7 @@ def get_best_time_from_szas(dt, w_coords, e_coords, img_times):
         sat = '16'
     szas = np.zeros(len(img_times))
     for i, t in enumerate(img_times):
-        szas[i] = astronomy.sun_zenith_angle(t, lat, lon)
+        szas[i] = astronomy.sun_zenith_angle(t, lon, lat)
     thresh = 90
     szas[szas>thresh]=1e5 #arbitrarily large number
     best_time_idx = (np.abs(szas - thresh)).argmin()
@@ -45,6 +56,6 @@ def sza_best_time(lat, lon, start_dt, end_dt, res=1000, img_size=256):
     img_times = get_time_list(start_dt, end_dt)
     #print(img_times)
     w_coords, e_coords = west_east_lat_lon(lat, lon, res, img_size)
-    sat, best_time = get_best_time_from_szas(dt, w_coords, e_coords, img_times)
+    sat, best_time = get_best_time_from_szas(w_coords, e_coords, img_times)
     return sat, best_time
 

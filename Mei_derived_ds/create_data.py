@@ -32,7 +32,7 @@ smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
 global ray_par_dir
 ray_par_dir = "/tmp/"
 global data_par_dir
-data_par_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/large_SmokeViz/'
+data_par_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/Mie_SmokeViz/'
 
 def mv_files(truth_src):
     yr_dn = dn_dir.split('/')[-2]
@@ -55,13 +55,7 @@ def pick_temporal_smoke(smoke_shape, t_0, t_f):
     rel_smoke = smoke_shape.loc[use_idx]
     return rel_smoke
 
-def reshape(A, idx, size=1024):
-    d = int(size/2)
-    A =A[idx[0]-d:idx[0]+d, idx[1]-d:idx[1]+d]
-    return A
-
-def save_data(RGB, fn_data, size=1024):
-    #RGB = reshape(RGB, idx, size)
+def save_data(RGB, fn_data):
     total = np.sum(np.sum(RGB))
     if total > 100 and total < 3e6:
         skimage.io.imsave(fn_data, RGB)
@@ -117,7 +111,6 @@ def plot_truth(x, y, lcc_proj, smoke, png_fn, img_shape):
     bw = ImageOps.invert(bw)
 
     truth = np.asarray(bw).astype('i')
-    #truth = reshape(truth, idx)
     #os.remove(png_fn)
     return truth
 
@@ -143,12 +136,12 @@ def get_truth(x, y, lcc_proj, smoke, png_fn, tif_fn, img_shape):
     return False
 
 def get_extent(center, rand_xy):
-    cent_x = center.x+(rand_xy[0]*2e3) # multipy by 2km resolution
-    cent_y = center.y+(rand_xy[1]*2e3)
-    x0 = cent_x - 1.024e6
-    y0 = cent_y - 1.024e6
-    x1 = cent_x + 1.024e6
-    y1 = cent_y + 1.024e6
+    cent_x = center.x+(rand_xy[0]*1e3) # multipy by 2km resolution
+    cent_y = center.y+(rand_xy[1]*1e3)
+    x0 = cent_x - 1.28e5
+    y0 = cent_y - 1.28e5
+    x1 = cent_x + 1.28e5
+    y1 = cent_y + 1.28e5
     return [x0, y0, x1, y1]
 
 def get_lcc_proj():
@@ -166,7 +159,7 @@ def get_scn(fns, extent):
     my_area = create_area_def(area_id='lccCONUS',
                               description='Lambert conformal conic for the contiguous US',
                               projection=get_lcc_proj(),
-                              resolution=2000,
+                              resolution=1000,
                               area_extent=extent)
     new_scn = scn.resample(my_area)
     return new_scn
@@ -221,9 +214,6 @@ def create_data_truth(sat_fns, smoke, idx0, yr, density, rand_xy):
     del scn
     del RGB
     return
-
-
-
 
 @ray.remote(max_calls=1)
 def iter_rows(smoke_row):
