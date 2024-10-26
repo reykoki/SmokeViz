@@ -20,7 +20,7 @@ import shutil
 import wget
 from datetime import timedelta
 from grab_smoke import get_smoke
-from get_sat import get_best_sat
+from Mie import sza_best_time
 
 global smoke_dir
 smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
@@ -183,19 +183,20 @@ def create_smoke_rows(smoke):
         row_yr = ts_start.strftime('%Y')
         lat = centers.loc[idx].y
         lon = centers.loc[idx].x
-        sat, best_time = sza_best_time(lat, lon, ts_start)
+        sat, best_time = sza_best_time(lat, lon, ts_start, ts_end)
 
         fn_heads, sat_fns = get_sat_files(best_time, sat)
         if sat_fns:
-            if doesnt_already_exists(yr, fn_heads, idx, density):
+            if doesnt_already_exists(yr, fn_heads, idx, row['Density']):
                 for sat_fn_entry in sat_fns:
                     sat_fns_to_dl.extend(sat_fn_entry)
                     smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry}
                     smoke_rows.append(smoke_row_ind)
 
     sat_fns_to_dl = list(set(sat_fns_to_dl))
+    print(sat_fns_to_dl)
     if sat_fns_to_dl:
-        ray.init(num_cpus=4)
+        ray.init(ignore_reinit_error=True, num_cpus=4)
         ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
         ray.shutdown()
 
@@ -226,7 +227,6 @@ def iter_smoke(date):
         print(smoke_rows)
         with open('{}smoke_rows_{}{}.pkl'.format(dn_dir, yr, dn), 'wb') as handle:
             pickle.dump(smoke_rows, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
 
 def main(start_dn, end_dn, yr):
     global dn_dir
