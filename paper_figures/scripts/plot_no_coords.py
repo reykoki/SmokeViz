@@ -35,10 +35,14 @@ def get_mesh(num_pixels):
     X, Y = np.meshgrid(x,y)
     return X,Y
 
-def coords_from_fn(fn, res=2000, img_size=1024): # img_size - number of pixels
+def get_center_lat_lon(fn):
     fn_split = fn.split('.tif')[0].split('_')
     lat = fn_split[-3]
     lon = fn_split[-2]
+    return lat, lon
+
+def coords_from_fn(fn, res=2000, img_size=1024): # img_size - number of pixels
+    lat, lon = get_center_lat_lon(fn)
     lcc_proj = pyproj.Proj(get_proj())
     x, y = lcc_proj(lon,lat)
     dist = int(img_size/2*res)
