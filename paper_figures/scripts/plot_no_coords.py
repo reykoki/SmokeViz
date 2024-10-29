@@ -41,7 +41,7 @@ def get_center_lat_lon(fn):
     lon = fn_split[-2]
     return lat, lon
 
-def coords_from_fn(fn, res=2000, img_size=1024): # img_size - number of pixels
+def coords_from_fn(fn, res=1000, img_size=256): # img_size - number of pixels
     lat, lon = get_center_lat_lon(fn)
     lcc_proj = pyproj.Proj(get_proj())
     x, y = lcc_proj(lon,lat)
