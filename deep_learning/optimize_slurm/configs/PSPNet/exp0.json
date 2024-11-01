@@ -1,0 +1,6 @@
+{
+    "architecture":"DeepLabV3Plus",
+    "encoder": "timm-efficientnet-b2",
+    "lr": 1e-4,
+    "batch_size": 32 
+}
