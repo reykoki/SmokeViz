@@ -97,6 +97,20 @@ def save_ious(iou_dict, best_iou_dict, idx):
 
     return best_iou_dict
 
+#def run_model_idx(best_iou_dict, dataloader, model):
+def run_model_idx(dataloader, model):
+    indices = [10, 2, 4, 6]
+    for idx in indices:
+        for i, _ in enumerate(dataloader):
+            batch_data, batch_labels, truth_fn = dataloader.dataset[idx]
+            batch_data, batch_labels = batch_data.to(device, dtype=torch.float), batch_labels.to(device, dtype=torch.float)
+            preds = model(batch_data)
+            iou_dict= compute_iou(preds[:,0,:,:], batch_labels[:,0,:,:], 'high', iou_dict)
+            iou_dict= compute_iou(preds[:,1,:,:], batch_labels[:,1,:,:], 'medium', iou_dict)
+            iou_dict= compute_iou(preds[:,2,:,:], batch_labels[:,2,:,:], 'low', iou_dict)
+            save_test_results(truth_fn, preds.detach().to('cpu').numpy(), idx, iou_dict)
+            break
+
 def test_model(dataloader, model, BCE_loss):
     model.eval()
     torch.set_grad_enabled(False)
@@ -121,7 +135,7 @@ def test_model(dataloader, model, BCE_loss):
             break
     print(best_iou_dict)
     #display_iou(iou_dict)
-    return
+    return best_iou_dict
 
 def val_model(dataloader, model, BCE_loss):
     model.eval()
@@ -233,7 +247,8 @@ if test_mode:
     print(chkpt_pth)
     checkpoint=torch.load(chkpt_pth)
     model.load_state_dict(checkpoint['model_state_dict'])
-    test_model(test_loader, model, BCE_loss)
+    run_model_idx(test_loader, model)
+    #test_model(test_loader, model, BCE_loss)
 else:
     train_model(train_loader, val_loader, model, n_epochs, start_epoch, exp_num, BCE_loss)
 
