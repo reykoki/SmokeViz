@@ -1,0 +1,28 @@
+#!/bin/bash
+
+for i in "$@"
+do
+case $i in
+    -s=*|--start=*)
+    START=${i#*=}
+    ;;
+    -e=*|--end=*)
+    END=${i#*=}
+    ;;
+    -y=*|--year=*)
+    YEAR="${i#*=}"
+    ;;
+esac
+done
+
+head_jid=$(sbatch --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} head.script | cut -d ' ' -f4)
+compute_jid=$(sbatch --dependency=afterany:${head_jid} --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} compute.script | cut -d ' ' -f4)
+##compute_jid=$(sbatch --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} compute.script | cut -d ' ' -f4)
+
+##declare -a years=("2019", "2020", "2021", "2022", "2023", "2024")
+##declare -a years=("2019", "2021", "2023", "2024")
+##for y in "${years[@]}"
+##do
+##    head_jid=$(sbatch --dependency=afterany:${compute_jid} --export=START_DN=${START},END_DN=${END},YEAR="$y" head.script | cut -d ' ' -f4)
+##    compute_jid=$(sbatch --dependency=afterany:${head_jid} --export=START_DN=${START},END_DN=${END},YEAR="$y" compute.script | cut -d ' ' -f4)
+##done
