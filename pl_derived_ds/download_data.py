@@ -1,4 +1,5 @@
 import shutil
+from multiprocessing import Pool
 import pickle
 import cartopy.crs as ccrs
 import glob
@@ -103,9 +104,8 @@ def create_smoke_rows(smoke, yr, dn):
     sat_fns_to_dl = list(set(sat_fns_to_dl))
     print(sat_fns_to_dl)
     if sat_fns_to_dl:
-        ray.init(ignore_reinit_error=True, num_cpus=8)
-        ray.get([download_sat_files.remote(sat_file) for sat_file in sat_fns_to_dl])
-        ray.shutdown()
+        p = Pool(8)
+        p.map(download_sat_files, sat_fns_to_dl)
 
     smoke_rows_final = []
     for smoke_row in smoke_rows:
@@ -143,6 +143,7 @@ def main(start_dn, end_dn, yr):
         print(date)
         iter_smoke(date)
         print("Time elapsed for data download for day {}{}: {}s".format(date[1], date[0], int(time.time() - start)), flush=True)
+
 
 if __name__ == '__main__':
     start_dn = sys.argv[1]

@@ -1,11 +1,15 @@
 import os
 import ray
 from datetime import datetime
-import s3fs
 import pytz
 import shutil
 from datetime import timedelta
+import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
 
+global client
+client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 
 def get_goes_dl_loc(yr, dn):
     goes_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/GOES/'
@@ -47,48 +51,92 @@ def get_closest_file(fns, best_time, sat_num):
                     use_fns = [fn, C02_fn, C03_fn]
     return use_fns
 
+def get_mode(dt):
+    M3_to_M6 = pytz.utc.localize(datetime(2019, 4, 1, 0, 0)) # April 2019 switch from Mode 3 to Mode 6 (every 15 to 10 mins)
+    if dt < M3_to_M6:
+        mode = 'M3'
+    else:
+        mode = 'M6'
+    return mode
+
+def get_goes_west(sat_num, dt):
+    G18_op_dt = pytz.utc.localize(datetime(2022, 7, 28, 0, 0))
+    G17_op_dt = pytz.utc.localize(datetime(2018, 8, 28, 0, 0))
+    if dt >= G18_op_dt:
+        sat_num = '18'
+    if dt < G17_op_dt:
+        print("G17 not launched yet")
+        sat_num = '16'
+    return sat_num
+
+def diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr):
+    print('need diagnosis')
+    diff = timedelta(days=100)
+
+    C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}'.format(yr, dn, hr, mode, sat_num, yr, dn, hr)
+    C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
+    use_entry = None
+    if C01_filelist == 0:
+        if mode == 'M3':
+            mode2 = 'M6'
+        else:
+            mode2 = 'M3'
+        C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}'.format(yr, dn, hr, mode2, sat_num, yr, dn, hr)
+        C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
+        if C01_filelist == 0:
+            if len(full_filelist) == 0 and sat_num == '18' and curr_time < G17_end_dt:
+                sat_num = '17'
+                C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
+    if C01_filelist['KeyCount'] == 0:
+        return None, None
+    for entry in C01_filelist['Contents'][0]:
+        start = entry['Key'].split('_')[3:5][0][1:-3]
+        s_dt = pytz.utc.localize(datetime.strptime(start, '%Y%j%H%M'))
+        if diff > abs(s_dt - curr_time):
+            diff = abs(s_dt - curr_time)
+            use_entry = entry
+    return use_entry, C01_prefix
+
+def get_GOES_file_loc(curr_time, mode, sat_num):
+    yr = curr_time.year
+    dn = curr_time.strftime('%j')
+    hr = curr_time.hour
+    hr = str(hr).zfill(2)
+    mn = curr_time.minute
+    C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}{}'.format(yr, dn, hr, mode, sat_num, yr, dn, hr, mn)
+    C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
+    if C01_filelist['KeyCount'] != 1:
+        C01_fn, C01_prefix = diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr)
+    else:
+        C01_fn = C01_filelist['Contents'][0]['Key']
+    if C01_fn:
+        C02_prefix = C01_prefix.replace('C01', 'C02')
+        C03_prefix = C01_prefix.replace('C01', 'C03')
+        try:
+            C02_fn = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C02_prefix)['Contents'][0]['Key']
+            C03_fn = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C03_prefix)['Contents'][0]['Key']
+            return [C01_fn, C02_fn, C03_fn]
+        except Exception as e:
+            print(e)
+            return []
+
 
 def get_sat_files(time_list, sat_num):
 
-    fs = s3fs.S3FileSystem(anon=True)
     all_fn_heads = []
     all_sat_fns = []
 
-    G18_op_dt = pytz.utc.localize(datetime(2022, 7, 28, 0, 0))
-    G17_op_dt = pytz.utc.localize(datetime(2018, 8, 28, 0, 0))
+    if sat_num == '17':
+        sat_num = get_goes_west(sat_num, time_list[0])
+    mode = get_mode(time_list[0])
+
     G17_end_dt = pytz.utc.localize(datetime(2023, 1, 10, 0, 0))
-    if sat_num == '17' and time_list[0] >= G18_op_dt:
-        sat_num = '18'
-    if time_list[0] < G17_op_dt:
-        print("G17 not launched yet")
-        sat_num = '16'
-
     for curr_time in time_list:
-        hr = curr_time.hour
-        hr = str(hr).zfill(2)
-        yr = curr_time.year
-        dn = curr_time.strftime('%j')
-
-        full_filelist = []
-        try:
-            full_filelist = fs.ls("noaa-goes{}/ABI-L1b-RadF/{}/{}/{}/".format(sat_num, yr, dn, hr))
-        except Exception as e:
-            print(e)
-        if len(full_filelist) == 0:
-            if len(full_filelist) == 0 and sat_num == '18' and curr_time < G17_end_dt:
-                sat_num = '17'
-            try:
-                full_filelist = fs.ls("noaa-goes{}/ABI-L1b-RadF/{}/{}/{}/".format(sat_num, yr, dn, hr))
-            except Exception as e:
-                print("ERROR WITH FS LS")
-                print(sat_num, yr, dn, hr)
-                print(e)
-        if len(full_filelist) > 0:
-            sat_fns = get_closest_file(full_filelist, curr_time, sat_num)
-            if sat_fns:
-                fn_head = sat_fns[0].split('C01_')[-1].split('.')[0].split('_c2')[0]
-                all_fn_heads.append(fn_head)
-                all_sat_fns.append(sat_fns)
+        sat_fns = get_GOES_file_loc(curr_time, mode, sat_num)
+        if sat_fns:
+            fn_head = sat_fns[0].split('C01_')[-1].split('.')[0].split('_c2')[0]
+            all_fn_heads.append(fn_head)
+            all_sat_fns.append(sat_fns)
 
     if len(all_sat_fns)>0:
         all_sat_fns = [list(item) for item in set(tuple(row) for row in all_sat_fns)]
@@ -96,14 +144,12 @@ def get_sat_files(time_list, sat_num):
         return all_fn_heads, all_sat_fns
     return None, None
 
-@ray.remote
 def download_sat_files(sat_file):
-    fs = s3fs.S3FileSystem(anon=True)
     fn = sat_file.split('/')[-1]
     fn_dl_loc = goes_dl_loc+fn
-    print(fn_dl_loc)
+    sat_num = fn.split('G')[-1][:2]
     if os.path.exists(fn_dl_loc) is False:
         print('downloading {}'.format(fn))
-        fs.get(sat_file, fn_dl_loc)
+        client.download_file(Bucket='noaa-goes{}'.format(sat_num), Key=sat_file, Filename=fn_dl_loc)
     return
 
