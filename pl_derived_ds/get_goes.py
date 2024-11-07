@@ -1,8 +1,6 @@
 import os
-import ray
 from datetime import datetime
 import pytz
-import shutil
 from datetime import timedelta
 import boto3
 from botocore import UNSIGNED
@@ -69,33 +67,37 @@ def get_goes_west(sat_num, dt):
         sat_num = '16'
     return sat_num
 
-def diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr):
+def diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr, mn):
     print('need diagnosis')
-    diff = timedelta(days=100)
 
-    C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}'.format(yr, dn, hr, mode, sat_num, yr, dn, hr)
+    diff = timedelta(minutes=10)
+    #C01_prefix = 'ABI-L1b-RadC/{}/{}/{}/OR_ABI-L1b-RadC-{}C01_G{}_s{}{}{}'.format(yr, dn, hr, mode, sat_num, yr, dn, hr)
+    #print(C01_prefix)
+    #C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
+    #print(C01_filelist)
+    #use_entry = None
+    #if C01_filelist == 0:
+    if mode == 'M3':
+        mode2 = 'M6'
+    else:
+        mode2 = 'M3'
+    C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}'.format(yr, dn, hr, mode2, sat_num, yr, dn, hr, mn)
     C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
-    use_entry = None
-    if C01_filelist == 0:
-        if mode == 'M3':
-            mode2 = 'M6'
-        else:
-            mode2 = 'M3'
+    G17_end_dt = pytz.utc.localize(datetime(2023, 1, 10, 0, 0))
+    if C01_filelist['KeyCount'] == 0 and sat_num == '18' and curr_time < G17_end_dt:
+        sat_num = '17'
         C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}'.format(yr, dn, hr, mode2, sat_num, yr, dn, hr)
         C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
-        if C01_filelist == 0:
-            if len(full_filelist) == 0 and sat_num == '18' and curr_time < G17_end_dt:
-                sat_num = '17'
-                C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
+
     if C01_filelist['KeyCount'] == 0:
         return None, None
-    for entry in C01_filelist['Contents'][0]:
+    for entry in C01_filelist['Contents']:
         start = entry['Key'].split('_')[3:5][0][1:-3]
         s_dt = pytz.utc.localize(datetime.strptime(start, '%Y%j%H%M'))
         if diff > abs(s_dt - curr_time):
             diff = abs(s_dt - curr_time)
             use_entry = entry
-    return use_entry, C01_prefix
+    return use_entry['Key'], C01_prefix
 
 def get_GOES_file_loc(curr_time, mode, sat_num):
     yr = curr_time.year
@@ -106,7 +108,7 @@ def get_GOES_file_loc(curr_time, mode, sat_num):
     C01_prefix = 'ABI-L1b-RadF/{}/{}/{}/OR_ABI-L1b-RadF-{}C01_G{}_s{}{}{}{}'.format(yr, dn, hr, mode, sat_num, yr, dn, hr, mn)
     C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
     if C01_filelist['KeyCount'] != 1:
-        C01_fn, C01_prefix = diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr)
+        C01_fn, C01_prefix = diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr, mn)
     else:
         C01_fn = C01_filelist['Contents'][0]['Key']
     if C01_fn:
@@ -117,9 +119,9 @@ def get_GOES_file_loc(curr_time, mode, sat_num):
             C03_fn = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C03_prefix)['Contents'][0]['Key']
             return [C01_fn, C02_fn, C03_fn]
         except Exception as e:
+            print('could not find accomaning files for: {}'.format(C01_fn))
             print(e)
             return []
-
 
 def get_sat_files(time_list, sat_num):
 
@@ -130,7 +132,6 @@ def get_sat_files(time_list, sat_num):
         sat_num = get_goes_west(sat_num, time_list[0])
     mode = get_mode(time_list[0])
 
-    G17_end_dt = pytz.utc.localize(datetime(2023, 1, 10, 0, 0))
     for curr_time in time_list:
         sat_fns = get_GOES_file_loc(curr_time, mode, sat_num)
         if sat_fns:
@@ -144,12 +145,22 @@ def get_sat_files(time_list, sat_num):
         return all_fn_heads, all_sat_fns
     return None, None
 
+def check_goes_exists(sat_files):
+    sat_files = list(set(sat_files))
+    sat_fns_to_dl = []
+    for sat_file in sat_files:
+        fn = sat_file.split('/')[-1]
+        fn_dl_loc = goes_dl_loc+fn
+        sat_num = fn.split('G')[-1][:2]
+        if os.path.exists(fn_dl_loc) is False:
+            sat_fns_to_dl.append(sat_file)
+    return sat_fns_to_dl
+
 def download_sat_files(sat_file):
     fn = sat_file.split('/')[-1]
     fn_dl_loc = goes_dl_loc+fn
     sat_num = fn.split('G')[-1][:2]
-    if os.path.exists(fn_dl_loc) is False:
-        print('downloading {}'.format(fn))
-        client.download_file(Bucket='noaa-goes{}'.format(sat_num), Key=sat_file, Filename=fn_dl_loc)
+    print('downloading {}'.format(fn))
+    client.download_file(Bucket='noaa-goes{}'.format(sat_num), Key=sat_file, Filename=fn_dl_loc)
     return
 

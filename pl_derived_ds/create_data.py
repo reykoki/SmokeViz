@@ -111,11 +111,8 @@ def get_scn(fns, extent):
     new_scn = scn.resample(my_area)
     return new_scn
 
-def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, full_data_dir):
+def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, fn_head, full_data_dir):
     print('idx: ', idx0)
-    fn_head = sat_fns[0].split('C01_')[-1].split('.')[0].split('_e2')[0]
-    print(fn_head)
-
     lcc_proj = get_lcc_proj()
     smoke_lcc = smoke.to_crs(lcc_proj)
     centers = smoke_lcc.centroid
@@ -129,7 +126,9 @@ def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, full_data_
         scn = get_scn(sat_fns, extent)
     except Exception as e:
         print(e)
-        print('{} did not download, moving on'.format(sat_fns[0]))
+        print('{} did not download, moving on'.format(sat_fns))
+        for sat_fn in sat_fns:
+            os.remove(sat_fn)
         return fn_head
 
     composite = 'cimss_true_color_sunz_rayleigh'

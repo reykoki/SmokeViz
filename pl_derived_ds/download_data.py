@@ -4,7 +4,6 @@ import pickle
 import cartopy.crs as ccrs
 import glob
 import pyproj
-import ray
 import sys
 import logging
 import geopandas
@@ -20,7 +19,7 @@ import wget
 from datetime import timedelta
 from grab_smoke import get_smoke
 from Mie import sza_sat_valid_times
-from get_goes import get_sat_files, get_goes_dl_loc, get_file_locations, download_sat_files
+from get_goes import get_sat_files, get_goes_dl_loc, get_file_locations, download_sat_files, check_goes_exists
 
 global smoke_dir
 smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
@@ -30,23 +29,18 @@ data_par_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/PL_SmokeViz/'
 global full_data_dir
 full_data_dir = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/full_dataset/'
 
-def doesnt_already_exists(yr, dn, fn_heads, idx, density):
-    for fn_head in fn_heads:
-        fn_head_parts = fn_head.split('_')
-        sat_num = fn_head_parts[0]
-        start_scan = fn_head_parts[1]
-        file_list = glob.glob('{}truth/{}/{}/{}/{}_{}_*_{}.tif'.format(data_par_dir, yr, density, dn, sat_num, start_scan, idx))
-        if len(file_list) > 0:
-            print("FILE THAT ALREADY EXIST:", file_list[0], flush=True)
-            return False
-        file_list = glob.glob('{}low_iou/{}_{}_*_{}.tif'.format(data_par_dir, yr, density, sat_num, start_scan, idx))
-        if len(file_list) > 0:
-            print("THIS ANNOTATION FAILED:", file_list[0], flush=True)
-            return False
-        file_list = glob.glob('{}bad_img/{}_{}_*_{}.tif'.format(full_data_dir, yr, density, sat_num, start_scan, idx))
-        if len(file_list) > 0:
-            print("THIS IMAGE FAILED:", file_list[0], flush=True)
-            return False
+def doesnt_already_exists(yr, dn, fn_head, idx, density):
+    fn_head_parts = fn_head.split('_')
+    sat_num = fn_head_parts[0]
+    start_scan = fn_head_parts[1]
+    file_list = glob.glob('{}truth/{}/{}/{}/{}_{}_*_{}.tif'.format(full_data_dir, yr, density, dn, sat_num, start_scan, idx))
+    if len(file_list) > 0:
+        print("FILE THAT ALREADY EXIST:", file_list[0], flush=True)
+        return False
+    file_list = glob.glob('{}bad_img/{}_{}_*_{}.tif'.format(full_data_dir, yr, density, sat_num, start_scan, idx))
+    if len(file_list) > 0:
+        print("THIS IMAGE FAILED:", file_list[0], flush=True)
+        return False
     return True
 
 def get_lcc_proj():
@@ -90,19 +84,20 @@ def create_smoke_rows(smoke, yr, dn):
         lat = centers.loc[idx].y
         lon = centers.loc[idx].x
         sat_num, valid_times = sza_sat_valid_times(lat, lon, ts_start, ts_end)
+        density = row['Density']
         if valid_times and sat_num:
             fn_heads, sat_fns = get_sat_files(valid_times, sat_num)
         else:
             sat_fns = None
         if sat_fns:
-            if doesnt_already_exists(yr, dn, fn_heads, idx, row['Density']):
-                for sat_fn_entry in sat_fns:
+            for sample_idx, sat_fn_entry in enumerate(sat_fns):
+                if doesnt_already_exists(yr, dn, fn_heads[sample_idx], idx, density):
                     sat_fns_to_dl.extend(sat_fn_entry)
-                    smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': row['Density'], 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry, 'yr': yr, 'dn': dn}
+                    smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': density, 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry, 'yr': yr, 'dn': dn}
                     smoke_rows.append(smoke_row_ind)
 
-    sat_fns_to_dl = list(set(sat_fns_to_dl))
-    print(sat_fns_to_dl)
+    sat_fns_to_dl = check_goes_exists(sat_fns_to_dl)
+
     if sat_fns_to_dl:
         p = Pool(8)
         p.map(download_sat_files, sat_fns_to_dl)
