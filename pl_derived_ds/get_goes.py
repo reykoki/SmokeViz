@@ -75,7 +75,7 @@ def diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr, mn):
     #print(C01_prefix)
     #C01_filelist = client.list_objects_v2(Bucket='noaa-goes{}'.format(sat_num), Prefix=C01_prefix)
     #print(C01_filelist)
-    #use_entry = None
+    use_entry = None
     #if C01_filelist == 0:
     if mode == 'M3':
         mode2 = 'M6'
@@ -96,8 +96,8 @@ def diagnose_filelist(curr_time, mode, sat_num, yr, dn, hr, mn):
         s_dt = pytz.utc.localize(datetime.strptime(start, '%Y%j%H%M'))
         if diff > abs(s_dt - curr_time):
             diff = abs(s_dt - curr_time)
-            use_entry = entry
-    return use_entry['Key'], C01_prefix
+            use_entry = entry['Key']
+    return use_entry, C01_prefix
 
 def get_GOES_file_loc(curr_time, mode, sat_num):
     yr = curr_time.year
@@ -161,6 +161,11 @@ def download_sat_files(sat_file):
     fn_dl_loc = goes_dl_loc+fn
     sat_num = fn.split('G')[-1][:2]
     print('downloading {}'.format(fn))
-    client.download_file(Bucket='noaa-goes{}'.format(sat_num), Key=sat_file, Filename=fn_dl_loc)
+    try:
+        client.download_file(Bucket='noaa-goes{}'.format(sat_num), Key=sat_file, Filename=fn_dl_loc)
+    except Exception as e:
+        print('boto3 failed')
+        print(e)
+        pass
     return
 

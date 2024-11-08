@@ -128,7 +128,8 @@ def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, fn_head, f
         print(e)
         print('{} did not download, moving on'.format(sat_fns))
         for sat_fn in sat_fns:
-            os.remove(sat_fn)
+            if os.path.exists(sat_fn):
+                os.remove(sat_fn)
         return fn_head
 
     composite = 'cimss_true_color_sunz_rayleigh'

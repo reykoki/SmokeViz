@@ -1,7 +1,9 @@
 from pyorbital import astronomy
 import numpy as np
 import pyproj
+from datetime import datetime
 from datetime import timedelta
+import pytz
 import cartopy.crs as ccrs
 
 def get_proj():
@@ -13,12 +15,24 @@ def get_proj():
 
     return lcc_proj
 
+
+def get_closest_to(dt, min_diff):
+    approx = round(dt.minute/min_diff) * min_diff
+    dt = dt.replace(minute=0)
+    dt += timedelta(seconds=approx * 60)
+    return dt
+
 # get time list from time window
 def get_time_list(start_dt, end_dt):
-    t = start_dt
+    M3_to_M6 = pytz.utc.localize(datetime(2019, 4, 1, 0, 0)) # April 2019 switch from Mode 3 to Mode 6 (every 15 to 10 mins)
+    if end_dt < M3_to_M6:
+        min_diff = 15 #M6
+    else:
+        min_diff = 10 #M3
+    t = get_closest_to(start_dt, min_diff)
     time_list = [t]
     while t < end_dt:
-        t += timedelta(minutes=10)
+        t += timedelta(minutes=min_diff)
         time_list.append(t)
     return time_list
 

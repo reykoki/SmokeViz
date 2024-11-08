@@ -140,7 +140,31 @@ def main(start_dn, end_dn, yr):
         print("Time elapsed for data download for day {}{}: {}s".format(date[1], date[0], int(time.time() - start)), flush=True)
 
 
+def get_dates(yr):
+    smoke_row_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/full_dataset/smoke_rows/"
+    fns = glob.glob('{}smoke_rows_*.pkl'.format(smoke_row_dir))
+    sep = ''
+    fns = sep.join(fns)
+    dn_yr_list = []
+    final_dn = 366
+    if yr == 2024:
+        final_dn = 320
+    for dn in range(1, final_dn):
+        yrdn = str(yr)+str(dn).zfill(3)
+        if yrdn not in fns:
+            dn_yr_list.append({'year': yr, 'dn': dn})
+    print(dn_yr_list)
+    print(len(dn_yr_list))
+
+    return dn_yr_list
+
 if __name__ == '__main__':
+    #dn_yr_list = get_dates(yr)
+    #for dn_yr in dn_yr_list:
+    #    start_dn  = dn_yr['dn']
+    #    end_dn  = dn_yr['dn']
+    #    yr = dn_yr['year']
+    #    main(start_dn, end_dn, yr)
     start_dn = sys.argv[1]
     end_dn = sys.argv[2]
     yr = sys.argv[3]
