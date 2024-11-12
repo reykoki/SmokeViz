@@ -22,6 +22,12 @@ def get_iou(high_iou, med_iou, low_iou):
     intersection = high_iou[0] + med_iou[0] + low_iou[0]
     union = high_iou[1] + med_iou[1] + low_iou[1]
     overall_iou = intersection/union
+    h_iou = high_iou[0]/ high_iou[1]
+    m_iou = med_iou[0]/ med_iou[1]
+    l_iou = low_iou[0]/ low_iou[1]
+    print('high: {}'.format(h_iou))
+    print('med:  {}'.format(m_iou))
+    print('low:  {}'.format(l_iou))
     print("Overall IoU all density smoke: {}".format(overall_iou))
     return overall_iou
 
@@ -61,10 +67,9 @@ def setup(rank, world_size):
     dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
 
-def val_model(dataloader, model, criterion, rank):
+def val_model(dataloader, model, rank):
     model.eval()
     torch.set_grad_enabled(False)
-    total_loss = 0.0
     high_iou = IoUCalculator('high')
     med_iou = IoUCalculator('medium')
     low_iou = IoUCalculator('low')
@@ -72,19 +77,10 @@ def val_model(dataloader, model, criterion, rank):
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
         preds = model(batch_data)
-        high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
-        med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
-        low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
-        loss = 3*high_loss + 2*med_loss + low_loss
-        test_loss = loss.item()
-        total_loss += test_loss
         high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
         med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
         low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
-    final_loss = total_loss/len(dataloader)
-    if rank==0:
-        print("Validation Loss: {}".format(np.round(final_loss,4)), flush=True)
-    return final_loss, high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
+    return high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
 
 
 
@@ -103,7 +99,6 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num,
 
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
     start_epoch = 0
-    best_loss = 0
     ckpt_pth = None
 
     model = model.to(rank)
@@ -132,33 +127,6 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num,
     return model, optimizer, start_epoch, best_loss
 
 
-def train_model(train_dataloader, model, criterion, optimizer, rank):
-    total_loss = 0.0
-    model.train()
-    torch.set_grad_enabled(True)
-    start = time.time()
-    for data in train_dataloader:
-
-        optimizer.zero_grad() # zero the parameter gradients
-        batch_data, batch_labels = data
-        batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
-
-        preds = model(batch_data)
-        high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
-        med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
-        low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
-        loss = 3*high_loss + 2*med_loss + low_loss
-        total_loss += loss.item()
-
-        # compute gradient and do step
-        loss.backward()
-        optimizer.step()
-
-    epoch_loss = total_loss/len(train_dataloader)
-    if rank==0:
-        print('training time: ', np.round(time.time() - start, 2), flush=True)
-        print("training loss:   {}".format(np.round(epoch_loss,4)), flush=True)
-
 def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True):
     data_transforms = transforms.Compose([transforms.ToTensor()])
     dataset = SmokeDataset(data_dict[cat], data_transforms)
@@ -172,14 +140,6 @@ def main(rank, world_size, config_fn):
     with open(config_fn) as fn:
         hyperparams = json.load(fn)
 
-    #with open('./dataset_pointers/make_list/subsample.pkl', 'rb') as handle:
-    #with open('./dataset_pointers/both_sats/both_sats.pkl', 'rb') as handle:
-    #with open('./dataset_pointers/smokeviz_yr_split/SmokeViz.pkl', 'rb') as handle:
-    #data_fn = './dataset_pointers/smokeviz_yr_split/SmokeViz.pkl'
-    #data_fn = './dataset_pointers/large/large.pkl'
-    #data_fn = './dataset_pointers/Mie/Mie.pkl'
-    #data_fn = './dataset_pointers/pseudo/pseudo.pkl'
-    data_fn = './dataset_pointers/Mie/Mie.pkl'
     data_fn = hyperparams['datapointer']
 
     with open(data_fn, 'rb') as handle:
@@ -196,14 +156,12 @@ def main(rank, world_size, config_fn):
 
     setup(rank, world_size)
 
-    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=batch_size, num_workers=num_workers)
-    val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=batch_size, is_train=False, num_workers=num_workers)
+    test_loader = prepare_dataloader(rank, world_size, data_dict, 'test', batch_size=batch_size, is_train=False, num_workers=num_workers)
 
     if rank==0:
         print('data dict:              ', data_fn)
         print('config fn:              ', config_fn)
-        print('number of train samples:', len(data_dict['train']['truth']))
-        print('number of val samples:  ', len(data_dict['val']['truth']))
+        print('number of test samples:  ', len(data_dict['test']['truth']))
         print('learning rate:          ', lr)
         print('batch_size:             ', batch_size)
         print('arch:                   ', arch)
@@ -212,51 +170,31 @@ def main(rank, world_size, config_fn):
         print('num gpus:               ', world_size)
         print('pretrained weights:     ', encoder_weights)
 
-    use_ckpt = False
+    use_ckpt = True
     use_recent = False
-    #use_ckpt = True
-    #use_recent = True
     ckpt_save_loc = './models/'
     ckpt_loc = None
     if use_ckpt:
         if use_recent:
             ckpt_loc = ckpt_save_loc
         else:
-            ckpt_loc = hyperparams['ckpt']
+            #ckpt_loc = './models/DeepLabV3Plus_exp0_1731375075.pth'
+            ckpt_loc = './models/DeepLabV3Plus_exp0_Mie.pth'
 
     model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights)
 
-    criterion = nn.BCEWithLogitsLoss().to(rank)
 
-    prev_iou = 0
 
-    for epoch in range(start_epoch, n_epochs):
+    if rank==0:
+        start = time.time()
 
-        if rank==0:
-            print('--------------\nStarting Epoch: {}'.format(epoch), flush=True)
-            start = time.time()
+    test_loader.sampler.set_epoch(start_epoch)
 
-        train_loader.sampler.set_epoch(epoch)
-        val_loader.sampler.set_epoch(epoch)
+    high_iou, med_iou, low_iou = val_model(test_loader, model, rank)
 
-        train_model(train_loader, model, criterion, optimizer, rank)
-        val_loss, high_iou, med_iou, low_iou = val_model(val_loader, model, criterion, rank)
-
-        if rank==0:
-            print("time to run epoch:", np.round(time.time() - start, 2))
-            iou = get_iou(high_iou, med_iou, low_iou)
-            if iou > prev_iou:
-                checkpoint = {
-                        'epoch': epoch + 1,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'loss': val_loss,
-                        'iou': iou
-                        }
-                ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, exp_num, int(time.time()))
-                torch.save(checkpoint, ckpt_pth)
-                print('SAVING MODEL:\n', ckpt_pth, flush=True)
-                prev_iou = iou
+    if rank==0:
+        print("time to run testing:", np.round(time.time() - start, 2))
+        iou = get_iou(high_iou, med_iou, low_iou)
 
     dist.destroy_process_group()
 
