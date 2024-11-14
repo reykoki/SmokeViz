@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=60G
+#SBATCH --time=8:00:00
+#SBATCH --partition=hera
+#SBATCH --output=/scratch1/RDARCH/rda-ghpcs/Rey.Koki/logs/create_data.%j.log
+#SBATCH --account=rda-ghpcs
+
+source /scratch1/RDARCH/rda-ghpcs/Rey.Koki/miniconda3/etc/profile.d/conda.sh
+conda activate smoke
+
+python create_data.py $START_DN $END_DN $YEAR
+exit 0
+

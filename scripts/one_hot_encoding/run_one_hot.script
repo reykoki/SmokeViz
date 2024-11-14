@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=50G
+#SBATCH --time=2:00:00
+#SBATCH --partition=fge
+#SBATCH --qos=gpu
+##SBATCH --exclude=h25c22
+#SBATCH --output=/scratch1/RDARCH/rda-ghpcs/Rey.Koki/logs/one_hot.%j.log
+#SBATCH --account=rda-ghpcs
+
+source /scratch1/RDARCH/rda-ghpcs/Rey.Koki/miniconda3/etc/profile.d/conda.sh
+conda activate smoke
+
+python convert_one_hot.py
+exit 0
+

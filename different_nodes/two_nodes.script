@@ -1,0 +1,21 @@
+#!/bin/bash
+
+for i in "$@"
+do
+case $i in
+    -s=*|--start=*)
+    START=${i#*=}
+    ;;
+    -e=*|--end=*)
+    END=${i#*=}
+    ;;
+    -y=*|--year=*)
+    YEAR="${i#*=}"
+    ;;
+esac
+done
+
+head_jid=$(sbatch --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} head.script | cut -d ' ' -f4)
+
+compute_jid=$(sbatch --dependency=afterok:${head_jid} --export=START_DN=${START},END_DN=${END},YEAR=${YEAR} compute.script | cut -d ' ' -f4)
+

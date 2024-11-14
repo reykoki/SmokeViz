@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#SBATCH --ntasks=1
+#SBATCH --time=6:00:00
+#SBATCH --partition=service
+#SBATCH --exclude=hfe10,hfe11
+#SBATCH --output=/scratch1/RDARCH/rda-ghpcs/Rey.Koki/logs/download_data.%j.log
+#SBATCH --account=rda-ghpcs
+
+source /scratch1/RDARCH/rda-ghpcs/Rey.Koki/miniconda3/etc/profile.d/conda.sh
+conda activate smoke
+
+##python download_data.py $START_DN $END_DN $YEAR
+python download_data.py 1 1 2021 
+exit 0
+

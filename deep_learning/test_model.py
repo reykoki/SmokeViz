@@ -15,21 +15,20 @@ from metrics import compute_iou, display_iou
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-if len(sys.argv) < 2:
-    print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
-if len(sys.argv) > 2:
-    print("IN TEST MODE!")
-    test_mode = sys.argv[2]
-else:
-    test_mode = False
+#if len(sys.argv) < 2:
+#    print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
+#if len(sys.argv) > 2:
+#    print("IN TEST MODE!")
+#    test_mode = sys.argv[2]
+#else:
+#    test_mode = False
+test_mode=True
 
 
-exp_num = str(sys.argv[1])
-data_dict_name = str(sys.argv[3])
-#data_dict_name = 'pseudo_labeled_ds.pkl'
-#data_dict_name = '/projects/mecr8410/SmokeViz_code/deep_learning/dataset_pointers/midday/less_than_3hrs.pkl'
-#region = 'NE'
-#data_dict_name = '/projects/mecr8410/SmokeViz_code/deep_learning/dataset_pointers/geo_dependent/{}.pkl'.format(region)
+#exp_num = (sys.argv[1])
+exp_num = 0
+
+data_dict_name = './dataset_pointers/smokeviz_yr_split/SmokeViz.pkl'
 print(data_dict_name)
 with open(data_dict_name, 'rb') as handle:
     data_dict = pickle.load(handle)
@@ -45,7 +44,7 @@ test_set = SmokeDataset(data_dict['test'], data_transforms)
 print('there are {} testing samples in this dataset'.format(len(test_set)))
 
 def save_test_results(truth_fn, preds, dir_num, iou_dict):
-    save_loc = '/projects/mecr8410/smoke/plot_results/test_results/{}/'.format(dir_num)
+    save_loc = '/test_results/{}/'.format(dir_num)
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
     truth_fn = truth_fn[0]
@@ -70,37 +69,73 @@ def save_test_results(truth_fn, preds, dir_num, iou_dict):
     json_object = json.dumps(fn_info, indent=4)
     with open(save_loc + "fn_info.json", "w") as outfile:
         outfile.write(json_object)
+def save_ious(iou_dict, best_iou_dict, idx):
+    if iou_dict['high']['prev_union'] > 0:
+        high_iou = iou_dict['high']['prev_int']/iou_dict['high']['prev_union']
+    else:
+        high_iou = -1
+    if iou_dict['medium']['prev_union'] > 0:
+        med_iou = iou_dict['medium']['prev_int']/iou_dict['medium']['prev_union']
+    else:
+        med_iou = -1
+    if iou_dict['low']['prev_union'] > 0:
+        low_iou = iou_dict['low']['prev_int']/iou_dict['low']['prev_union']
+    else:
+        low_iou = -1
+    overall_int = iou_dict['low']['prev_int'] + iou_dict['medium']['prev_int'] + iou_dict['high']['prev_int']
+    overall_union = iou_dict['low']['prev_union'] + iou_dict['medium']['prev_union'] + iou_dict['high']['prev_union']
+    overall_iou = overall_int / overall_union
+    if high_iou > .5:
+        best_iou_dict['high']['iou'].append(high_iou)
+        best_iou_dict['high']['idx'].append(idx)
+    if med_iou > .5:
+        best_iou_dict['medium']['iou'].append(med_iou)
+        best_iou_dict['medium']['idx'].append(idx)
+    if low_iou > .5:
+        best_iou_dict['low']['iou'].append(low_iou)
+        best_iou_dict['low']['idx'].append(idx)
+
+    return best_iou_dict
+
+#def run_model_idx(best_iou_dict, dataloader, model):
+def run_model_idx(dataloader, model):
+    indices = [10, 2, 4, 6]
+    for idx in indices:
+        for i, _ in enumerate(dataloader):
+            batch_data, batch_labels, truth_fn = dataloader.dataset[idx]
+            batch_data, batch_labels = batch_data.to(device, dtype=torch.float), batch_labels.to(device, dtype=torch.float)
+            preds = model(batch_data)
+            iou_dict= compute_iou(preds[:,0,:,:], batch_labels[:,0,:,:], 'high', iou_dict)
+            iou_dict= compute_iou(preds[:,1,:,:], batch_labels[:,1,:,:], 'medium', iou_dict)
+            iou_dict= compute_iou(preds[:,2,:,:], batch_labels[:,2,:,:], 'low', iou_dict)
+            save_test_results(truth_fn, preds.detach().to('cpu').numpy(), idx, iou_dict)
+            break
 
 def test_model(dataloader, model, BCE_loss):
     model.eval()
     torch.set_grad_enabled(False)
     total_loss = 0.0
     iou_dict= {'high': {'int': 0, 'union':0, 'prev_int': 0, 'prev_union': 0}, 'medium': {'int': 0, 'union':0, 'prev_int': 0, 'prev_union': 0}, 'low': {'int': 0, 'union':0, 'prev_int': 0, 'prev_union': 0}}
-    #max_num = 100
+    best_iou_dict = {'high': {'iou': [], 'idx':[]}, 'medium': {'iou': [], 'idx':[]}, 'low': {'iou': [], 'idx':[]}}
+    max_num = 100
     for idx, data in enumerate(dataloader):
         batch_data, batch_labels, truth_fn = data
         print(len(batch_data))
         batch_data, batch_labels = batch_data.to(device, dtype=torch.float), batch_labels.to(device, dtype=torch.float)
         preds = model(batch_data)
-
-        high_loss = BCE_loss(preds[:,0,:,:], batch_labels[:,0,:,:]).to(device)
-        med_loss = BCE_loss(preds[:,1,:,:], batch_labels[:,1,:,:]).to(device)
-        low_loss = BCE_loss(preds[:,2,:,:], batch_labels[:,2,:,:]).to(device)
-        loss = 3*high_loss + 2*med_loss + low_loss
-        #loss = high_loss + med_loss + low_loss
-        test_loss = loss.item()
-        total_loss += test_loss
         iou_dict= compute_iou(preds[:,0,:,:], batch_labels[:,0,:,:], 'high', iou_dict)
         iou_dict= compute_iou(preds[:,1,:,:], batch_labels[:,1,:,:], 'medium', iou_dict)
         iou_dict= compute_iou(preds[:,2,:,:], batch_labels[:,2,:,:], 'low', iou_dict)
-    #    if idx < max_num:
+        print(iou_dict)
+        best_iou_dict = save_ious(iou_dict, best_iou_dict, idx)
+
+        if idx > max_num:
     #        print(idx)
     #        save_test_results(truth_fn, preds.detach().to('cpu').numpy(), idx, iou_dict)
-        #    break
-    display_iou(iou_dict)
-    final_loss = total_loss/len(dataloader)
-    print("Testing Loss: {}".format(round(final_loss,8)), flush=True)
-    return final_loss
+            break
+    print(best_iou_dict)
+    #display_iou(iou_dict)
+    return best_iou_dict
 
 def val_model(dataloader, model, BCE_loss):
     model.eval()
@@ -165,19 +200,20 @@ def train_model(train_dataloader, val_dataloader, model, n_epochs, start_epoch, 
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict()
                     }
-            torch.save(checkpoint, '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/checkpoint_exp{}.pth'.format(exp_num))
+            #torch.save(checkpoint, '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/checkpoint_exp{}.pth'.format(exp_num))
             #torch.save(model, './scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/best_model.pth')
     print(history)
     return model, history
 
 
-with open('configs/exp{}.json'.format(exp_num)) as fn:
+with open('configs/DeepLabV3Plus/exp0.json'.format(exp_num)) as fn:
     hyperparams = json.load(fn)
 
 use_ckpt = False
 #use_ckpt = True
-BATCH_SIZE = int(hyperparams["batch_size"])
-BATCH_SIZE = 128
+#BATCH_SIZE = int(hyperparams["batch_size"])
+BATCH_SIZE = 1
+
 #train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 #val_loader = torch.utils.data.DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=False, drop_last=True)
@@ -205,12 +241,14 @@ if use_ckpt == True:
 BCE_loss = nn.BCEWithLogitsLoss()
 if test_mode:
     print("IN TEST MODE!")
-    #chkpt_pth = '/scratch/alpine/mecr8410/semantic_segmentation_smoke/scripts/deep_learning/models/checkpoint.pth'
-    chkpt_pth = './models/DLV3P_exp1_1719683871.pth'
+    #chkpt_pth = './models/DLV3P_exp1_1719683871.pth'
+    chkpt_pth = './models/DeepLabV3Plus_exp0_1729717558.pth'
+
     print(chkpt_pth)
     checkpoint=torch.load(chkpt_pth)
     model.load_state_dict(checkpoint['model_state_dict'])
-    test_model(test_loader, model, BCE_loss)
+    run_model_idx(test_loader, model)
+    #test_model(test_loader, model, BCE_loss)
 else:
     train_model(train_loader, val_loader, model, n_epochs, start_epoch, exp_num, BCE_loss)
 
