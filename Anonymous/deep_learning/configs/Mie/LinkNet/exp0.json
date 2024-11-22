@@ -1,0 +1,10 @@
+{
+    "architecture":"LinkNet",
+    "encoder": "timm-efficientnet-b2",
+    "lr": 1e-2,
+    "batch_size": 32,
+    "num_workers": 4,
+    "job_name": "Mie_LinkNet_exp0", 
+    "datapointer": "./dataset_pointers/Mie2/Mie2.pkl",
+    "encoder_weights": "imagenet"
+}

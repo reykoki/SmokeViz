@@ -1,0 +1,10 @@
+{
+    "architecture":"DeepLabV3Plus",
+    "encoder": "timm-efficientnet-b1",
+    "lr": 1e-2,
+    "batch_size": 32,
+    "num_workers": 4,
+    "job_name": "Mie_DLV3_exp3", 
+    "datapointer": "./dataset_pointers/Mie/Mie.pkl",
+    "encoder_weights": "None" 
+}
