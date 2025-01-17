@@ -20,6 +20,7 @@ from datetime import timedelta
 from grab_smoke import get_smoke
 from Mie import sza_sat_valid_times
 from get_goes import get_sat_files, get_goes_dl_loc, get_file_locations, download_sat_files, check_goes_exists
+from get_null_df import *
 
 global smoke_dir
 smoke_dir = "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/smoke/"
@@ -54,7 +55,7 @@ def get_lcc_proj():
 
 
 # we need a consistent random shift in the dataset per each annotation
-def get_random_xy(size=256, null):
+def get_random_xy(size=256, null=True):
     if null is True:
         return (0, 0)
     d = int(size/4)
@@ -80,7 +81,7 @@ def create_smoke_rows(smoke, yr, dn, null=False):
 
     for idx, row in smoke.iterrows():
         #if idx == 89:
-        rand_xy = get_random_xy(null)
+        rand_xy = get_random_xy(null=null)
         ts_start = smoke.loc[idx]['Start']
         ts_end = smoke.loc[idx]['End']
         lat = centers.loc[idx].y
@@ -121,10 +122,12 @@ def iter_smoke(date):
     print('------')
     print(dt)
     print('------')
-    smoke = get_smoke(dt, smoke_dir)
+    #smoke = get_smoke(dt, smoke_dir)
+    smoke = get_null_smoke(yr, dn, dt, res=1000, size=256)
     if smoke is not None:
         goes_dl_loc = get_goes_dl_loc(yr, dn)
-        smoke_rows = create_smoke_rows(smoke, yr, dn)
+        #smoke_rows = create_smoke_rows(smoke, yr, dn)
+        smoke_rows = create_smoke_rows(smoke, yr, dn, null=True)
         #print(smoke_rows)
         with open('{}{}smoke_rows_{}{}.pkl'.format(full_data_dir, 'smoke_rows/', yr, dn), 'wb') as handle:
             pickle.dump(smoke_rows, handle, protocol=pickle.HIGHEST_PROTOCOL)
