@@ -54,7 +54,9 @@ def get_lcc_proj():
 
 
 # we need a consistent random shift in the dataset per each annotation
-def get_random_xy(size=256):
+def get_random_xy(size=256, null):
+    if null is True:
+        return (0, 0)
     d = int(size/4)
     x_shift = random.randint(int(-1*d), d)
     y_shift = random.randint(int(-1*d), d)
@@ -65,7 +67,7 @@ def smoke_utc(time_str):
     return pytz.utc.localize(datetime.strptime(time_str, fmt))
 
 # create object that contians all the smoke information needed
-def create_smoke_rows(smoke, yr, dn):
+def create_smoke_rows(smoke, yr, dn, null=False):
     fmt = '%Y%j %H%M'
     smoke_fns = []
     bounds = smoke.bounds
@@ -78,7 +80,7 @@ def create_smoke_rows(smoke, yr, dn):
 
     for idx, row in smoke.iterrows():
         #if idx == 89:
-        rand_xy = get_random_xy()
+        rand_xy = get_random_xy(null)
         ts_start = smoke.loc[idx]['Start']
         ts_end = smoke.loc[idx]['End']
         lat = centers.loc[idx].y
@@ -133,6 +135,7 @@ def main(start_dn, end_dn, yr):
     for dn in dns:
         dn = str(dn).zfill(3)
         dates.append([dn, yr])
+    dates.reverse()
     for date in dates:
         start = time.time()
         print(date)
