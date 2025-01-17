@@ -83,8 +83,9 @@ def get_truth(x, y, lcc_proj, smoke, png_fn, tif_fn, img_shape, full_data_dir):
         return False
 
 def get_extent(center, rand_xy):
-    cent_x = center.x+(rand_xy[0]*1e3) # multipy by 2km resolution
-    cent_y = center.y+(rand_xy[1]*1e3)
+    res = 1e3 # resolution (m)
+    cent_x = center.x+(rand_xy[0]*res)
+    cent_y = center.y+(rand_xy[1]*res)
     x0 = cent_x - 1.28e5
     y0 = cent_y - 1.28e5
     x1 = cent_x + 1.28e5
