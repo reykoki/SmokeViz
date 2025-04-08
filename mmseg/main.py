@@ -127,14 +127,14 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, arch, encoder, lr, exp
     best_loss = 0
     ckpt_pth = None
 
-    model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+    #model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+    model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if use_ckpt:
         if use_recent:
-            ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
-            ckpt_list.sort()
+            ckpt_list = glob.glob('{}{}_{}_exp{}_*.pth'.format(ckpt_loc, arch, encoder, exp_num))
+            ckpt_list.sort() # sort by time
             if ckpt_list:
-                # sorted by time
                 most_recent = ckpt_list.pop()
                 ckpt_pth = most_recent
         else:
@@ -184,28 +184,18 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
 def get_subset_train(data_dict):
     subset_data_dict = {'train':{'data':[], 'truth':[]}}
     num_samples = int(len(data_dict['train']['truth'])/5)
-    print(num_samples)
     subset_data_dict['train']['data'] = random.sample(data_dict['train']['data'], num_samples)
     subset_data_dict['train']['truth'] = random.sample(data_dict['train']['truth'], num_samples)
-    print('----')
-    print(len(subset_data_dict['train']['data']))
-    print(len(subset_data_dict['train']['truth']))
-    print('----')
     return subset_data_dict
 
 def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True):
     data_transforms = transforms.Compose([transforms.ToTensor()])
     dataset = SmokeDataset(data_dict[cat], data_transforms)
     if is_train:
-        print('--------------')
         rand_transforms = transforms.Compose([transforms.ToTensor(), transforms.RandomRotation(degrees=(0,180))])
         rot_data_dict = get_subset_train(data_dict)
         rot_dataset = SmokeDataset(rot_data_dict[cat], rand_transforms)
-        print(len(dataset))
-        print(len(rot_dataset))
         dataset = torch.utils.data.ConcatDataset([rot_dataset, dataset])
-        print(len(dataset))
-        print('--------------')
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=is_train, drop_last=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=False, sampler=sampler)
     return dataloader
@@ -248,8 +238,8 @@ def main(rank, world_size, config_fn):
 
     use_ckpt = False
     use_recent = False
-    #use_ckpt = True
-    #use_recent = True
+    use_ckpt = True
+    use_recent = True
     ckpt_save_loc = './models/'
     ckpt_loc = None
     if use_ckpt:
