@@ -1,9 +1,10 @@
 norm_cfg = dict(type='SyncBN', requires_grad=True)
 
 hyperparams = dict(
-    lr=.001,
+    lr=.01,
     batch_size=8,
     num_workers=4,
+    job_name="sf_mit",
     datapointer="/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/w_null/w_null.pkl"
 )
 
