@@ -100,31 +100,26 @@ def val_model(dataloader, model, criterion, rank):
         print("Validation Loss: {}".format(loss_tensor[0]), flush=True)
     return final_loss, high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
 
+def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, arch, encoder, lr, exp_num):
 
+    #if encoder_weights == 'None':
+    #    encoder_weights = None
+    ##model = smp.create_model( # create any model architecture just with parameters, without using its class
+    #        arch='Segformer',
+    #        encoder_name='mit_b0',
+    #        encoder_weights=None, # use `imagenet` pre-trained weights for encoder initialization
+    #        in_channels=3, # model input channels
+    #        classes=3 # model output channels
+    #)
+    #model = model.to(rank)
 
-def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights):
-
-    if encoder_weights == 'None':
-        encoder_weights = None
-
-    model = smp.create_model( # create any model architecture just with parameters, without using its class
-            arch='Segformer',
-            encoder_name='mit_b0',
-            encoder_weights=None, # use `imagenet` pre-trained weights for encoder initialization
-            in_channels=3, # model input channels
-            classes=3 # model output channels
-    )
-    model = model.to(rank)
-
-    if rank == 0:
-        print(summary(model, input_size=(8,3,256,256)))
+    #if rank == 0:
+    #    print(summary(model, input_size=(8,3,256,256)))
 
     #cfg = Config.fromfile('./mms_config/test.py')
-    cfg = Config.fromfile('./mms_config/segformer_mit.py')
     model = init_model(cfg, device=rank)
     if rank == 0:
         print(cfg.model)
-        print(cfg.rey_params)
         print(summary(model, input_size=(8,3,256,256)))
 
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
@@ -218,30 +213,21 @@ def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=
 def main(rank, world_size, config_fn):
 
 
-    exp_num = config_fn.split('exp')[-1].split('.json')[0]
-    with open(config_fn) as fn:
-        hyperparams = json.load(fn)
-    #with open('./dataset_pointers/make_list/subsample.pkl', 'rb') as handle:
-    #with open('./dataset_pointers/both_sats/both_sats.pkl', 'rb') as handle:
-    #with open('./dataset_pointers/smokeviz_yr_split/SmokeViz.pkl', 'rb') as handle:
-    #data_fn = './dataset_pointers/smokeviz_yr_split/SmokeViz.pkl'
-    #data_fn = './dataset_pointers/large/large.pkl'
-    #data_fn = './dataset_pointers/Mie/Mie.pkl'
-    #data_fn = './dataset_pointers/pseudo/pseudo.pkl'
-    data_fn = './dataset_pointers/Mie/Mie.pkl'
-    data_fn = hyperparams['datapointer']
+    exp_num = config_fn.split('exp')[-1].split('.py')[0]
+    arch = config_fn.split('/')[-1].split('_')[0]
+    encoder = config_fn.split('/')[-1].split('_')[1]
+    cfg = Config.fromfile(config_fn)
+    hyperparams = cfg.hyperparams
 
+    data_fn = hyperparams['datapointer']
     with open(data_fn, 'rb') as handle:
         data_dict = pickle.load(handle)
 
     n_epochs = 100
     start_epoch = 0
-    arch = hyperparams['architecture']
-    encoder = hyperparams['encoder']
     lr = hyperparams['lr']
     batch_size = int(hyperparams['batch_size'])
     num_workers = int(hyperparams['num_workers'])
-    encoder_weights = hyperparams['encoder_weights']
 
     setup(rank, world_size)
 
@@ -259,7 +245,6 @@ def main(rank, world_size, config_fn):
         print('encoder:                ', encoder)
         print('num workers:            ', num_workers)
         print('num gpus:               ', world_size)
-        print('pretrained weights:     ', encoder_weights)
 
     use_ckpt = False
     use_recent = False
@@ -273,7 +258,7 @@ def main(rank, world_size, config_fn):
         else:
             ckpt_loc = hyperparams['ckpt']
 
-    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights)
+    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, arch, encoder, lr, exp_num)
 
     criterion = nn.BCEWithLogitsLoss().to(rank)
 
@@ -302,7 +287,7 @@ def main(rank, world_size, config_fn):
                         'loss': val_loss,
                         'iou': iou
                         }
-                ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, exp_num, int(time.time()))
+                ckpt_pth = '{}{}_{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, encoder, exp_num, int(time.time()))
                 torch.save(checkpoint, ckpt_pth)
                 print('SAVING MODEL:\n', ckpt_pth, flush=True)
                 prev_iou = iou
