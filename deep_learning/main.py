@@ -1,4 +1,6 @@
 import pickle
+import random
+import torch.backends.cudnn as cudnn
 import os
 import glob
 import time
@@ -11,19 +13,26 @@ import torch.nn as nn
 from SmokeDataset import SmokeDataset
 from torchvision import transforms
 import segmentation_models_pytorch as smp
-
 import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from torchinfo import summary
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 
 def get_iou(high_iou, med_iou, low_iou):
     intersection = high_iou[0] + med_iou[0] + low_iou[0]
     union = high_iou[1] + med_iou[1] + low_iou[1]
+    print("high IoU: {}".format(high_iou[0]/high_iou[1]))
+    print("med IoU: {}".format(med_iou[0]/med_iou[1]))
+    print("low IoU: {}".format(low_iou[0]/low_iou[1]))
     overall_iou = intersection/union
-    print("Overall IoU all density smoke: {}".format(overall_iou))
-    return overall_iou
+    print("overall IoU: {}".format(overall_iou))
+    return overall_iou, high_iou[0]/high_iou[1]
 
 class IoUCalculator(object):
     """Computes and stores the current IoU and intersection and union sums"""
@@ -41,17 +50,15 @@ class IoUCalculator(object):
         pred = (pred > 0.5) * 1
         curr_int = (pred + truth == 2).sum()
         curr_union = (pred + truth >= 1).sum()
-        if curr_union > 0:
-            curr_IoU = curr_int / curr_union
         self.intersection += curr_int
         self.union += curr_union
 
     def all_reduce(self):
         rank = torch.device(f"cuda:{dist.get_rank()}")
+        #print("IoU for {} density smoke: {}".format(self.density, self.intersection/self.union))
         total = torch.tensor([self.intersection, self.union], dtype=torch.float32, device=rank)
         dist.all_reduce(total, dist.ReduceOp.SUM, async_op=False)
-        print("IoU for {} density smoke: {}".format(self.density, self.intersection/self.union))
-        return self.intersection, self.union
+        return total
 
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
@@ -72,6 +79,8 @@ def val_model(dataloader, model, criterion, rank):
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
         preds = model(batch_data)
+        #upsample = nn.UpsamplingBilinear2d(scale_factor=8)
+        #preds = upsample(preds)
         high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
         med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
@@ -82,39 +91,47 @@ def val_model(dataloader, model, criterion, rank):
         med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
         low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
     final_loss = total_loss/len(dataloader)
+    loss_tensor = torch.tensor([final_loss]).to(rank)
+    dist.all_reduce(loss_tensor)
+    loss_tensor /= 8
     if rank==0:
-        print("Validation Loss: {}".format(np.round(final_loss,4)), flush=True)
+        print("Validation Loss: {}".format(loss_tensor[0]), flush=True)
     return final_loss, high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
 
+def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
 
+    arch = cfg['architecture']
+    encoder = cfg['encoder']
+    lr = cfg['lr']
 
-def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights):
+    #if encoder_weights == 'None':
+    #    encoder_weights = None
 
-    if encoder_weights == 'None':
-        encoder_weights = None
     model = smp.create_model( # create any model architecture just with parameters, without using its class
             arch=arch,
             encoder_name=encoder,
-            #encoder_weights="imagenet", # use `imagenet` pre-trained weights for encoder initialization
-            encoder_weights=encoder_weights, # use `imagenet` pre-trained weights for encoder initialization
+            encoder_weights=None,
             in_channels=3, # model input channels
-            classes=3, # model output channels
+            classes=3 # model output channels
     )
+    model = model.to(rank)
+
+    #if rank == 0:
+    #    print(summary(model, input_size=(8,3,256,256)))
 
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
     start_epoch = 0
     best_loss = 0
     ckpt_pth = None
 
-    model = model.to(rank)
     model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+    #model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if use_ckpt:
         if use_recent:
-            ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
-            ckpt_list.sort()
+            ckpt_list = glob.glob('{}{}_{}_exp{}_*.pth'.format(ckpt_loc, arch, encoder, exp_num))
+            ckpt_list.sort() # sort by time
             if ckpt_list:
-                # sorted by time
                 most_recent = ckpt_list.pop()
                 ckpt_pth = most_recent
         else:
@@ -137,6 +154,7 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
     model.train()
     torch.set_grad_enabled(True)
     start = time.time()
+    #upsample = nn.UpsamplingBilinear2d(scale_factor=8)
     for data in train_dataloader:
 
         optimizer.zero_grad() # zero the parameter gradients
@@ -144,10 +162,17 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
 
         preds = model(batch_data)
+        #print('--------')
+        #print(batch_data.shape)
+        #print(batch_labels.shape)
+        #print(preds.shape)
+        #print('--------')
+        #preds = upsample(preds)
+
         high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
         med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
-        loss = 3*high_loss + 2*med_loss + low_loss
+        loss = 6*high_loss + 4*med_loss + low_loss
         total_loss += loss.item()
 
         # compute gradient and do step
@@ -159,44 +184,62 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
         print('training time: ', np.round(time.time() - start, 2), flush=True)
         print("training loss:   {}".format(np.round(epoch_loss,4)), flush=True)
 
-def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True):
-    data_transforms = transforms.Compose([transforms.ToTensor()])
-    dataset = SmokeDataset(data_dict[cat], data_transforms)
+def get_subset_train(data_dict):
+    subset_data_dict = {'train':{'data':[], 'truth':[]}}
+    num_samples = int(len(data_dict['train']['truth'])/5)
+    subset_data_dict['train']['data'] = random.sample(data_dict['train']['data'], num_samples)
+    subset_data_dict['train']['truth'] = random.sample(data_dict['train']['truth'], num_samples)
+    return subset_data_dict
+
+def get_transforms(train_augs):
+    transform_list = [transforms.ToTensor()]
+    if 'rhf' in train_augs.keys():
+        transform_list.append(transforms.RandomHorizontalFlip(p=train_augs['rhf']))
+    if 'rvf' in train_augs.keys():
+        transform_list.append(transforms.RandomVerticalFlip(p=train_augs['rvf']))
+    data_transforms = transforms.Compose(transform_list)
+    return data_transforms
+
+def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True, train_aug=None):
+    if is_train:
+        data_transforms = get_transforms(train_aug)
+        dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
+    else:
+        data_transforms = transforms.Compose([transforms.ToTensor()])
+        dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
+    #if is_train:
+    #    rand_transforms = transforms.Compose([transforms.ToTensor(), transforms.RandomRotation(degrees=(0,180))])
+    #    rot_data_dict = get_subset_train(data_dict)
+    #    rot_dataset = SmokeDataset(rot_data_dict[cat], rand_transforms)
+    #    dataset = torch.utils.data.ConcatDataset([rot_dataset, dataset])
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=is_train, drop_last=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler)
+    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=False, sampler=sampler)
     return dataloader
 
 def main(rank, world_size, config_fn):
 
     exp_num = config_fn.split('exp')[-1].split('.json')[0]
     with open(config_fn) as fn:
-        hyperparams = json.load(fn)
+        cfg = json.load(fn)
+    arch = cfg['architecture']
+    encoder = cfg['encoder']
+    lr = cfg['lr']
 
-    #with open('./dataset_pointers/make_list/subsample.pkl', 'rb') as handle:
-    #with open('./dataset_pointers/both_sats/both_sats.pkl', 'rb') as handle:
-    #with open('./dataset_pointers/smokeviz_yr_split/SmokeViz.pkl', 'rb') as handle:
-    #data_fn = './dataset_pointers/smokeviz_yr_split/SmokeViz.pkl'
-    #data_fn = './dataset_pointers/large/large.pkl'
-    #data_fn = './dataset_pointers/Mie/Mie.pkl'
-    #data_fn = './dataset_pointers/pseudo/pseudo.pkl'
-    data_fn = './dataset_pointers/Mie/Mie.pkl'
-    data_fn = hyperparams['datapointer']
 
+    data_fn = cfg['datapointer']
     with open(data_fn, 'rb') as handle:
         data_dict = pickle.load(handle)
 
     n_epochs = 100
     start_epoch = 0
-    arch = hyperparams['architecture']
-    encoder = hyperparams['encoder']
-    lr = hyperparams['lr']
-    batch_size = int(hyperparams['batch_size'])
-    num_workers = int(hyperparams['num_workers'])
-    encoder_weights = hyperparams['encoder_weights']
+    lr = cfg['lr']
+    batch_size = int(cfg['batch_size'])
+    num_workers = int(cfg['num_workers'])
+    encoder_weights = cfg['encoder_weights']
 
     setup(rank, world_size)
 
-    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=batch_size, num_workers=num_workers)
+    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=batch_size, num_workers=num_workers, train_aug=cfg['train_augmentations'])
     val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=batch_size, is_train=False, num_workers=num_workers)
 
     if rank==0:
@@ -210,7 +253,6 @@ def main(rank, world_size, config_fn):
         print('encoder:                ', encoder)
         print('num workers:            ', num_workers)
         print('num gpus:               ', world_size)
-        print('pretrained weights:     ', encoder_weights)
 
     use_ckpt = False
     use_recent = False
@@ -222,9 +264,9 @@ def main(rank, world_size, config_fn):
         if use_recent:
             ckpt_loc = ckpt_save_loc
         else:
-            ckpt_loc = hyperparams['ckpt']
+            ckpt_loc = cfg['ckpt']
 
-    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights)
+    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
 
     criterion = nn.BCEWithLogitsLoss().to(rank)
 
@@ -244,8 +286,8 @@ def main(rank, world_size, config_fn):
 
         if rank==0:
             print("time to run epoch:", np.round(time.time() - start, 2))
-            iou = get_iou(high_iou, med_iou, low_iou)
-            if iou > prev_iou:
+            iou, high_iou = get_iou(high_iou, med_iou, low_iou)
+            if iou > prev_iou and iou > .50 and high_iou > .35:
                 checkpoint = {
                         'epoch': epoch + 1,
                         'model_state_dict': model.state_dict(),
@@ -253,7 +295,7 @@ def main(rank, world_size, config_fn):
                         'loss': val_loss,
                         'iou': iou
                         }
-                ckpt_pth = '{}{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, exp_num, int(time.time()))
+                ckpt_pth = '{}{}_{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, encoder, exp_num, int(time.time()))
                 torch.save(checkpoint, ckpt_pth)
                 print('SAVING MODEL:\n', ckpt_pth, flush=True)
                 prev_iou = iou
@@ -262,6 +304,9 @@ def main(rank, world_size, config_fn):
 
 
 if __name__ == '__main__':
+    torch.manual_seed(0)
+    cudnn.deterministic = True
+    cudnn.benchmark = False
     world_size = 8 # num gpus
     if len(sys.argv) < 2:
         print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
