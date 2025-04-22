@@ -256,8 +256,8 @@ def main(rank, world_size, config_fn):
 
     use_ckpt = False
     use_recent = False
-    #use_ckpt = True
-    #use_recent = True
+    use_ckpt = True
+    use_recent = True
     ckpt_save_loc = './models/'
     ckpt_loc = None
     if use_ckpt:
