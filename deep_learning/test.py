@@ -18,46 +18,59 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
-def get_iou(high_iou, med_iou, low_iou):
-    intersection = high_iou[0] + med_iou[0] + low_iou[0]
-    union = high_iou[1] + med_iou[1] + low_iou[1]
+def get_metrics(high_metrics, med_metrics, low_metrics):
+    intersection = high_metrics[0] + med_metrics[0] + low_metrics[0]
+    union = high_metrics[1] + med_metrics[1] + low_metrics[1]
     overall_iou = intersection/union
-    h_iou = high_iou[0]/ high_iou[1]
-    m_iou = med_iou[0]/ med_iou[1]
-    l_iou = low_iou[0]/ low_iou[1]
-    print('high: {}'.format(h_iou))
-    print('med:  {}'.format(m_iou))
-    print('low:  {}'.format(l_iou))
     print("Overall IoU all density smoke: {}".format(overall_iou))
+    print("reduced high IoU: {}".format(high_metrics[0]/high_metrics[1]))
+    print("reduced med IoU: {}".format(med_metrics[0]/med_metrics[1]))
+    print("reduced low IoU: {}".format(low_metrics[0]/low_metrics[1]))
+
+    TP = high_metrics[2] + med_metrics[2] + low_metrics[2]
+    TN = high_metrics[3] + med_metrics[3] + low_metrics[3]
+    FP = high_metrics[4] + med_metrics[4] + low_metrics[4]
+    FN = high_metrics[5] + med_metrics[5] + low_metrics[5]
+    union = high_metrics[1] + med_metrics[1] + low_metrics[1]
+    print("high precision: {}".format(high_metrics[2]/(high_metrics[2]+high_metrics[4])))
+    print("med precision: {}".format(med_metrics[2]/(med_metrics[2]+med_metrics[4])))
+    print("low precision: {}".format(low_metrics[2]/(low_metrics[2]+low_metrics[4])))
+    print("Overall precision all density smoke: {}".format(TP/(TP+FP)))
+
+    print("Overall recall all density smoke: {}".format(TP/(TP+FN)))
+
     return overall_iou
 
-class IoUCalculator(object):
+
+class metrics_Calculator(object):
     """Computes and stores the current IoU and intersection and union sums"""
     def __init__(self, density):
         self.density = density
-        self.IoU = 0
         self.reset()
 
     def reset(self):
         self.intersection = 0
         self.union = 0
+        self.TP = 0
+        self.TN = 0
+        self.FP = 0
+        self.FN = 0
 
     def update(self, pred, truth):
         pred = torch.sigmoid(pred)
         pred = (pred > 0.5) * 1
-        curr_int = (pred + truth == 2).sum()
-        curr_union = (pred + truth >= 1).sum()
-        if curr_union > 0:
-            curr_IoU = curr_int / curr_union
-        self.intersection += curr_int
-        self.union += curr_union
+        self.intersection += (pred + truth == 2).sum()
+        self.union += (pred + truth >= 1).sum()
+        self.TP += (pred + truth == 2).sum()
+        self.TN += (pred + truth == 0).sum()
+        self.FP += (truth - pred == -1).sum()
+        self.FN += (pred - truth == -1).sum()
 
     def all_reduce(self):
         rank = torch.device(f"cuda:{dist.get_rank()}")
-        total = torch.tensor([self.intersection, self.union], dtype=torch.float32, device=rank)
-        dist.all_reduce(total, dist.ReduceOp.SUM, async_op=False)
-        print("IoU for {} density smoke: {}".format(self.density, self.intersection/self.union))
-        return self.intersection, self.union
+        metrics = torch.tensor([self.intersection, self.union, self.TP, self.TN, self.FP, self.FN], dtype=torch.float32, device=rank)
+        dist.all_reduce(metrics, dist.ReduceOp.SUM, async_op=False)
+        return metrics
 
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
@@ -66,22 +79,20 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
-
 def val_model(dataloader, model, rank):
     model.eval()
     torch.set_grad_enabled(False)
-    high_iou = IoUCalculator('high')
-    med_iou = IoUCalculator('medium')
-    low_iou = IoUCalculator('low')
+    high_metrics = metrics_Calculator('high')
+    med_metrics = metrics_Calculator('medium')
+    low_metrics = metrics_Calculator('low')
     for data in dataloader:
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
         preds = model(batch_data)
-        high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
-        med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
-        low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
-    return high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
-
+        high_metrics.update(preds[:,0,:,:], batch_labels[:,0,:,:])
+        med_metrics.update(preds[:,1,:,:], batch_labels[:,1,:,:])
+        low_metrics.update(preds[:,2,:,:], batch_labels[:,2,:,:])
+    return high_metrics.all_reduce(), med_metrics.all_reduce(), low_metrics.all_reduce()
 
 
 def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights):
@@ -90,8 +101,8 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num,
         encoder_weights = None
     model = smp.create_model( # create any model architecture just with parameters, without using its class
             arch=arch,
+            #encoder_name='timm-efficientnet-b2',
             encoder_name=encoder,
-            #encoder_weights="imagenet", # use `imagenet` pre-trained weights for encoder initialization
             encoder_weights=encoder_weights, # use `imagenet` pre-trained weights for encoder initialization
             in_channels=3, # model input channels
             classes=3, # model output channels
@@ -130,8 +141,8 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num,
 def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True):
     data_transforms = transforms.Compose([transforms.ToTensor()])
     dataset = SmokeDataset(data_dict[cat], data_transforms)
-    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=is_train, drop_last=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, shuffle=False, sampler=sampler)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, sampler=sampler)
     return dataloader
 
 def main(rank, world_size, config_fn):
@@ -140,6 +151,9 @@ def main(rank, world_size, config_fn):
     with open(config_fn) as fn:
         hyperparams = json.load(fn)
 
+    data_fn = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/midday_2/less_than_2hrs.pkl'
+    data_fn = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/pseudo/pseudo.pkl'
+    #data_fn = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/midday/less_than_2hrs.pkl'
     data_fn = hyperparams['datapointer']
 
     with open(data_fn, 'rb') as handle:
@@ -161,7 +175,7 @@ def main(rank, world_size, config_fn):
     if rank==0:
         print('data dict:              ', data_fn)
         print('config fn:              ', config_fn)
-        print('number of test samples:  ', len(data_dict['test']['truth']))
+        print('number of test samples: ', len(data_dict['test']['truth']))
         print('learning rate:          ', lr)
         print('batch_size:             ', batch_size)
         print('arch:                   ', arch)
@@ -171,36 +185,43 @@ def main(rank, world_size, config_fn):
         print('pretrained weights:     ', encoder_weights)
 
     use_ckpt = True
+    use_recent = True
     use_recent = False
-    ckpt_save_loc = './models/'
     ckpt_loc = None
     if use_ckpt:
         if use_recent:
-            ckpt_loc = ckpt_save_loc
+            ckpt_loc = './models/'
         else:
             #ckpt_loc = './models/DeepLabV3Plus_exp0_1731375075.pth'
-            ckpt_loc = './models/DeepLabV3Plus_exp0_Mie.pth'
+            #ckpt_loc = './models/Segformer_exp0_1738210568.pth'
+            #ckpt_loc = './models/PAN_exp0_1742362838.pth'
+            #ckpt_loc = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/pl_derived_ds/models/ckpt2.pth'
+            #ckpt_loc = './models/DeepLabV3Plus_exp0_PL.pth'
+            #ckpt_loc = './models/DeepLabV3Plus_exp0_1731375075.pth'
+            #ckpt_loc = './models/MAnet_exp0_1731399679.pth'
+            #ckpt_loc = './models/LinkNet_exp0_1731390166.pth'
+            ckpt_loc = './models/PSPNet_exp0_1731414257.pth'
+            ckpt_loc = ckpt_loc + 'DeepLabV3Plus_exp0_1742349282.pth'
 
     model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights)
-
-
 
     if rank==0:
         start = time.time()
 
     test_loader.sampler.set_epoch(start_epoch)
 
-    high_iou, med_iou, low_iou = val_model(test_loader, model, rank)
+    high_metrics, med_metrics, low_metrics = val_model(test_loader, model, rank)
 
     if rank==0:
         print("time to run testing:", np.round(time.time() - start, 2))
-        iou = get_iou(high_iou, med_iou, low_iou)
+        iou = get_metrics(high_metrics, med_metrics, low_metrics)
 
     dist.destroy_process_group()
 
 
 if __name__ == '__main__':
     world_size = 8 # num gpus
+    #world_size = 1 # num gpus
     if len(sys.argv) < 2:
         print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
     config_fn = str(sys.argv[1])
