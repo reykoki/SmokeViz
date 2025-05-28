@@ -1,4 +1,6 @@
 import pickle
+import random
+import torch.backends.cudnn as cudnn
 import os
 import glob
 import time
@@ -11,33 +13,33 @@ import torch.nn as nn
 from SmokeDataset import SmokeDataset
 from torchvision import transforms
 import segmentation_models_pytorch as smp
-
 import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from torchinfo import summary
 
 def get_metrics(high_metrics, med_metrics, low_metrics):
     intersection = high_metrics[0] + med_metrics[0] + low_metrics[0]
     union = high_metrics[1] + med_metrics[1] + low_metrics[1]
     overall_iou = intersection/union
-    print("Overall IoU all density smoke: {}".format(overall_iou))
-    print("reduced high IoU: {}".format(high_metrics[0]/high_metrics[1]))
-    print("reduced med IoU: {}".format(med_metrics[0]/med_metrics[1]))
-    print("reduced low IoU: {}".format(low_metrics[0]/low_metrics[1]))
+    print("high IoU: {}".format(high_metrics[0]/high_metrics[1]))
+    print("med IoU: {}".format(med_metrics[0]/med_metrics[1]))
+    print("low IoU: {}".format(low_metrics[0]/low_metrics[1]))
+    print("Overall IoU: {}".format(overall_iou))
 
     TP = high_metrics[2] + med_metrics[2] + low_metrics[2]
     TN = high_metrics[3] + med_metrics[3] + low_metrics[3]
     FP = high_metrics[4] + med_metrics[4] + low_metrics[4]
     FN = high_metrics[5] + med_metrics[5] + low_metrics[5]
     union = high_metrics[1] + med_metrics[1] + low_metrics[1]
+    print("Overall precision all density smoke: {}".format(TP/(TP+FP)))
+    print("Overall recall all density smoke: {}".format(TP/(TP+FN)))
+
     print("high precision: {}".format(high_metrics[2]/(high_metrics[2]+high_metrics[4])))
     print("med precision: {}".format(med_metrics[2]/(med_metrics[2]+med_metrics[4])))
     print("low precision: {}".format(low_metrics[2]/(low_metrics[2]+low_metrics[4])))
-    print("Overall precision all density smoke: {}".format(TP/(TP+FP)))
-
-    print("Overall recall all density smoke: {}".format(TP/(TP+FN)))
 
     return overall_iou
 
@@ -95,32 +97,37 @@ def val_model(dataloader, model, rank):
     return high_metrics.all_reduce(), med_metrics.all_reduce(), low_metrics.all_reduce()
 
 
-def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights):
+def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
 
-    if encoder_weights == 'None':
-        encoder_weights = None
+    arch = cfg['architecture']
+    encoder = cfg['encoder']
+    lr = cfg['lr']
+
     model = smp.create_model( # create any model architecture just with parameters, without using its class
             arch=arch,
-            #encoder_name='timm-efficientnet-b2',
             encoder_name=encoder,
-            encoder_weights=encoder_weights, # use `imagenet` pre-trained weights for encoder initialization
+            encoder_weights=None,
             in_channels=3, # model input channels
-            classes=3, # model output channels
+            classes=3 # model output channels
     )
+    model = model.to(rank)
+
+    if rank == 0:
+        print(summary(model, input_size=(16,3,256,256)))
 
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
     start_epoch = 0
+    best_loss = 0
     ckpt_pth = None
 
-    model = model.to(rank)
     model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+    #model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
     if use_ckpt:
         if use_recent:
-            ckpt_list = glob.glob('{}{}_exp{}_*.pth'.format(ckpt_loc, arch, exp_num))
-            ckpt_list.sort()
+            ckpt_list = glob.glob('{}{}_{}_exp{}_*.pth'.format(ckpt_loc, arch, encoder, exp_num))
+            ckpt_list.sort() # sort by time
             if ckpt_list:
-                # sorted by time
                 most_recent = ckpt_list.pop()
                 ckpt_pth = most_recent
         else:
@@ -138,35 +145,45 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num,
     return model, optimizer, start_epoch, best_loss
 
 
-def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True):
-    data_transforms = transforms.Compose([transforms.ToTensor()])
-    dataset = SmokeDataset(data_dict[cat], data_transforms)
-    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True, drop_last=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=False, sampler=sampler)
+def get_transforms(train_augs):
+    transform_list = [transforms.ToTensor()]
+    if 'rhf' in train_augs.keys():
+        transform_list.append(transforms.RandomHorizontalFlip(p=train_augs['rhf']))
+    if 'rvf' in train_augs.keys():
+        transform_list.append(transforms.RandomVerticalFlip(p=train_augs['rvf']))
+    data_transforms = transforms.Compose(transform_list)
+    return data_transforms
+
+def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True, train_aug=None):
+    if is_train:
+        data_transforms = get_transforms(train_aug)
+        dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
+    else:
+        data_transforms = transforms.Compose([transforms.ToTensor()])
+        dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=is_train, drop_last=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=False, sampler=sampler)
     return dataloader
 
 def main(rank, world_size, config_fn):
 
     exp_num = config_fn.split('exp')[-1].split('.json')[0]
     with open(config_fn) as fn:
-        hyperparams = json.load(fn)
+        cfg = json.load(fn)
+    arch = cfg['architecture']
+    encoder = cfg['encoder']
+    lr = cfg['lr']
 
-    data_fn = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/midday_2/less_than_2hrs.pkl'
-    data_fn = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/pseudo/pseudo.pkl'
-    #data_fn = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/midday/less_than_2hrs.pkl'
-    data_fn = hyperparams['datapointer']
 
+    data_fn = cfg['datapointer']
     with open(data_fn, 'rb') as handle:
         data_dict = pickle.load(handle)
 
-    n_epochs = 100
     start_epoch = 0
-    arch = hyperparams['architecture']
-    encoder = hyperparams['encoder']
-    lr = hyperparams['lr']
-    batch_size = int(hyperparams['batch_size'])
-    num_workers = int(hyperparams['num_workers'])
-    encoder_weights = hyperparams['encoder_weights']
+    lr = cfg['lr']
+    batch_size = int(cfg['batch_size'])
+    num_workers = int(cfg['num_workers'])
+    encoder_weights = cfg['encoder_weights']
 
     setup(rank, world_size)
 
@@ -186,24 +203,15 @@ def main(rank, world_size, config_fn):
 
     use_ckpt = True
     use_recent = True
-    use_recent = False
+    ckpt_save_loc = './models_Mie/'
     ckpt_loc = None
     if use_ckpt:
         if use_recent:
-            ckpt_loc = './models/'
+            ckpt_loc = ckpt_save_loc
         else:
-            #ckpt_loc = './models/DeepLabV3Plus_exp0_1731375075.pth'
-            #ckpt_loc = './models/Segformer_exp0_1738210568.pth'
-            #ckpt_loc = './models/PAN_exp0_1742362838.pth'
-            #ckpt_loc = '/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/pl_derived_ds/models/ckpt2.pth'
-            #ckpt_loc = './models/DeepLabV3Plus_exp0_PL.pth'
-            #ckpt_loc = './models/DeepLabV3Plus_exp0_1731375075.pth'
-            #ckpt_loc = './models/MAnet_exp0_1731399679.pth'
-            #ckpt_loc = './models/LinkNet_exp0_1731390166.pth'
-            ckpt_loc = './models/PSPNet_exp0_1731414257.pth'
-            ckpt_loc = ckpt_loc + 'DeepLabV3Plus_exp0_1742349282.pth'
+            ckpt_loc = cfg['ckpt']
 
-    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, arch, encoder, lr, exp_num, encoder_weights)
+    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
 
     if rank==0:
         start = time.time()
@@ -220,8 +228,10 @@ def main(rank, world_size, config_fn):
 
 
 if __name__ == '__main__':
+    torch.manual_seed(0)
+    cudnn.deterministic = True
+    cudnn.benchmark = False
     world_size = 8 # num gpus
-    #world_size = 1 # num gpus
     if len(sys.argv) < 2:
         print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
     config_fn = str(sys.argv[1])
