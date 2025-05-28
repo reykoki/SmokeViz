@@ -1,11 +1,12 @@
 {
-    "architecture":"Segformer",
-    "encoder": "tu-efficientvit_b0",
+    "architecture":"DeepLabV3Plus",
+    "encoder": "timm-efficientnet-b2",
     "train_augmentations": {"rhf": 0.3, 
                             "rvf": 0.3},
     "lr": 1e-4,
     "batch_size": 32,
     "num_workers": 4,
     "datapointer": "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/pseudo/pseudo.pkl",
+    "model": "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/Mie_models/DeepLabV3Plus_timm-efficientnet-b2_exp0_1747197658.pth",
     "encoder_weights": "None"
 }

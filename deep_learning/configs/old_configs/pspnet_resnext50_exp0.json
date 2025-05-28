@@ -1,6 +1,6 @@
 {
-    "architecture":"Segformer",
-    "encoder": "tu-efficientvit_b0",
+    "architecture":"PSPNet",
+    "encoder": "resnext50_32x4d",
     "train_augmentations": {"rhf": 0.3, 
                             "rvf": 0.3},
     "lr": 1e-4,

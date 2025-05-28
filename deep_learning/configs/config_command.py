@@ -17,7 +17,7 @@ for fn in e_d_fns:
 
 
 test = False
-#test = True
+test = True
 print('dl')
 for idx, decoder in enumerate(e_d_exp['decoder']):
     encoder = e_d_exp['encoder'][idx]

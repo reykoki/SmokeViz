@@ -1,0 +1,11 @@
+{
+    "architecture":"PSPNet",
+    "encoder": "timm-efficientnet-b2",
+    "train_augmentations": {"rhf": 0.3, 
+                            "rvf": 0.3},
+    "lr": 1e-4,
+    "batch_size": 32,
+    "num_workers": 4,
+    "datapointer": "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/midday/lt_2hrs_PL.pkl",
+    "encoder_weights": "None"
+}

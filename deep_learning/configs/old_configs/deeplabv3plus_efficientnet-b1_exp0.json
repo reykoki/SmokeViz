@@ -1,12 +1,11 @@
 {
-    "architecture":"PSPNet",
+    "architecture":"DeepLabV3Plus",
     "encoder": "timm-efficientnet-b1",
     "train_augmentations": {"rhf": 0.3, 
                             "rvf": 0.3},
     "lr": 1e-4,
     "batch_size": 32,
     "num_workers": 4,
-    "job_name": "DLV3_exp0", 
-    "datapointer": "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/w_null/w_null.pkl",
+    "datapointer": "/scratch1/RDARCH/rda-ghpcs/Rey.Koki/SmokeViz_code/deep_learning/dataset_pointers/pseudo/pseudo.pkl",
     "encoder_weights": "None"
 }

@@ -1,7 +1,0 @@
-{
-    "encoder": "timm-efficientnet-b2",
-    "lr": 5e-3,
-    "batch_size": 64, 
-    "model": "PSPNet"
-}
-
