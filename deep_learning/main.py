@@ -55,7 +55,6 @@ class IoUCalculator(object):
 
     def all_reduce(self):
         rank = torch.device(f"cuda:{dist.get_rank()}")
-        #print("IoU for {} density smoke: {}".format(self.density, self.intersection/self.union))
         total = torch.tensor([self.intersection, self.union], dtype=torch.float32, device=rank)
         dist.all_reduce(total, dist.ReduceOp.SUM, async_op=False)
         return total
@@ -79,8 +78,6 @@ def val_model(dataloader, model, criterion, rank):
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
         preds = model(batch_data)
-        #upsample = nn.UpsamplingBilinear2d(scale_factor=8)
-        #preds = upsample(preds)
         high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
         med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
@@ -116,8 +113,8 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
     )
     model = model.to(rank)
 
-    #if rank == 0:
-    #    print(summary(model, input_size=(8,3,256,256)))
+    if rank == 0:
+        print(summary(model, input_size=(8,3,256,256)))
 
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
     start_epoch = 0
@@ -154,7 +151,6 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
     model.train()
     torch.set_grad_enabled(True)
     start = time.time()
-    #upsample = nn.UpsamplingBilinear2d(scale_factor=8)
     for data in train_dataloader:
 
         optimizer.zero_grad() # zero the parameter gradients
@@ -162,12 +158,6 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
 
         preds = model(batch_data)
-        #print('--------')
-        #print(batch_data.shape)
-        #print(batch_labels.shape)
-        #print(preds.shape)
-        #print('--------')
-        #preds = upsample(preds)
 
         high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
         med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
@@ -201,17 +191,12 @@ def get_transforms(train_augs):
     return data_transforms
 
 def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True, train_aug=None):
-    if is_train:
-        data_transforms = get_transforms(train_aug)
-        dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
-    else:
-        data_transforms = transforms.Compose([transforms.ToTensor()])
-        dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
     #if is_train:
-    #    rand_transforms = transforms.Compose([transforms.ToTensor(), transforms.RandomRotation(degrees=(0,180))])
-    #    rot_data_dict = get_subset_train(data_dict)
-    #    rot_dataset = SmokeDataset(rot_data_dict[cat], rand_transforms)
-    #    dataset = torch.utils.data.ConcatDataset([rot_dataset, dataset])
+    #    data_transforms = get_transforms(train_aug)
+    #    dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
+    #else:
+    data_transforms = transforms.Compose([transforms.ToTensor()])
+    dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=is_train, drop_last=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=False, sampler=sampler)
     return dataloader
@@ -239,14 +224,13 @@ def main(rank, world_size, config_fn):
 
     setup(rank, world_size)
 
-    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=batch_size, num_workers=num_workers, train_aug=cfg['train_augmentations'])
-    val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=batch_size, is_train=False, num_workers=num_workers)
 
     if rank==0:
         print('data dict:              ', data_fn)
         print('config fn:              ', config_fn)
         print('number of train samples:', len(data_dict['train']['truth']))
         print('number of val samples:  ', len(data_dict['val']['truth']))
+        print('number of test samples:  ', len(data_dict['test']['truth']))
         print('learning rate:          ', lr)
         print('batch_size:             ', batch_size)
         print('arch:                   ', arch)
@@ -256,9 +240,9 @@ def main(rank, world_size, config_fn):
 
     use_ckpt = False
     use_recent = False
-    use_ckpt = True
-    use_recent = True
-    ckpt_save_loc = './models/'
+    #use_ckpt = True
+    #use_recent = True
+    ckpt_save_loc = './Mie_models/'
     ckpt_loc = None
     if use_ckpt:
         if use_recent:
@@ -271,6 +255,9 @@ def main(rank, world_size, config_fn):
     criterion = nn.BCEWithLogitsLoss().to(rank)
 
     prev_iou = 0
+
+    train_loader = prepare_dataloader(rank, world_size, data_dict, 'train', batch_size=batch_size, num_workers=num_workers, train_aug=cfg['train_augmentations'])
+    val_loader = prepare_dataloader(rank, world_size, data_dict, 'val', batch_size=batch_size, is_train=False, num_workers=num_workers)
 
     for epoch in range(start_epoch, n_epochs):
 
@@ -287,7 +274,7 @@ def main(rank, world_size, config_fn):
         if rank==0:
             print("time to run epoch:", np.round(time.time() - start, 2))
             iou, high_iou = get_iou(high_iou, med_iou, low_iou)
-            if iou > prev_iou and iou > .50 and high_iou > .35:
+            if iou > prev_iou and iou > .40 and high_iou > .3:
                 checkpoint = {
                         'epoch': epoch + 1,
                         'model_state_dict': model.state_dict(),
