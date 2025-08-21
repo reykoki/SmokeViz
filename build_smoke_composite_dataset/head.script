@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --time=4:00:00
+#SBATCH --ntasks=4 
+#SBATCH --partition=u1-service
+#SBATCH --mem=40G
+#SBATCH --output=./logs/output.%j.log
+#SBATCH --account=gpu-ghpcs
+#SBATCH --job-name=downloads
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user="rey.koki@colorado.edu"
+
+source /scratch3/BMC/gpu-ghpcs/Rey.Koki/miniconda/etc/profile.d/conda.sh
+conda activate cloud 
+
+export RAY_DEDUP_LOGS=0
+python download_data.py $START_DN $END_DN $YEAR
+exit 0
+
