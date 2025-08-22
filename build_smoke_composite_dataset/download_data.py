@@ -1,4 +1,5 @@
 import shutil
+import hashlib
 from multiprocessing import Pool
 import pickle
 import cartopy.crs as ccrs
@@ -20,6 +21,14 @@ from datetime import timedelta
 from grab_smoke import get_smoke
 from Mie import sza_sat_valid_times
 from get_goes import get_sat_files, get_goes_dl_loc, get_file_locations, download_sat_files, check_goes_exists
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="no explicit representation of timezones available for np.datetime64",
+    category=UserWarning,
+    module="pyorbital"
+)
 
 global smoke_dir
 smoke_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/smoke/"
@@ -57,10 +66,14 @@ def get_lcc_proj():
 
 
 # we need a consistent random shift in the dataset per each annotation
-def get_random_xy(size=256):
+def get_deterministic_random_xy(unique_str, size=256):
     d = int(size/4)
-    x_shift = random.randint(int(-1*d), d)
-    y_shift = random.randint(int(-1*d), d)
+    h = hashlib.sha256(unique_str.encode("utf-8")).digest()
+    i1 = int.from_bytes(h[:16], "big")
+    i2 = int.from_bytes(h[16:], "big")
+    span = 2 * d + 1  # size of the range [-d, d]
+    x_shift = (i1 % span) - d
+    y_shift = (i2 % span) - d
     return (x_shift, y_shift)
 
 def smoke_utc(time_str):
@@ -71,43 +84,20 @@ def PL_sample_exists(yr, dn, fn_head, idx, density):
     fn_head_parts = fn_head.split('_')
     sat_num = fn_head_parts[0]
     start_scan = fn_head_parts[1]
-    print("HELLO\n\n")
-    print('{}truth/{}/{}/{}/{}_{}_*_{}.tif'.format(PL_data_dir, yr, density, dn, sat_num, start_scan, idx))
     file_list = glob.glob('{}truth/{}/{}/{}/{}_{}_*_{}.tif'.format(PL_data_dir, yr, density, dn, sat_num, start_scan, idx))
     if len(file_list) > 0:
         print("PL chose this file:", file_list, flush=True)
         return True 
-
-    bad_file_list = glob.glob('{}low_iou/{}_{}_*_{}.tif'.format(PL_data_dir, sat_num, start_scan, idx))
-
-    if len(bad_file_list) > 0:
-        print("LOW IoU FILES:", bad_file_list, flush=True)
-        return False
     return False 
-
-def find_PL_smoke_row(smoke_rows):
-    checked_smoke_rows = []
-    for smoke_row in smoke_rows:
-        idx = smoke_row['idx']
-        density = smoke_row['density']
-        yr = smoke_row['yr']
-        dn = smoke_row['dn']
-        file_locs = smoke_row['sat_file_locs']
-        fn_head = file_locs[0].split('C01_')[-1].split('.')[0].split('_e2')[0]
-        PL_sample = PL_sample_exists(yr, dn, fn_head, idx, density)
-        if PL_sample:
-           return smoke_row 
-    return None
 
 
 # create object that contians all the smoke information needed
 def create_smoke_rows(smoke, yr, dn):
-    fmt = '%Y%j %H%M'
+    print(yr, dn, '\n')
     smoke_fns = []
     bounds = smoke.bounds
     centers = smoke.centroid
     smoke_rows = []
-    print(yr, dn, '\n')
 
     smoke['Start'] = smoke['Start'].apply(smoke_utc)
     smoke['End'] = smoke['End'].apply(smoke_utc)
@@ -115,16 +105,24 @@ def create_smoke_rows(smoke, yr, dn):
 
     for idx, row in smoke.iterrows():
         #if idx == 89:
-
-        print('{}{}smoke_rows_{}{}.pkl'.format(full_data_dir, 'smoke_rows/', yr, dn))
-        x = input('stop')
-        with open('{}{}smoke_rows_{}{}.pkl'.format(full_data_dir, 'smoke_rows/', yr, dn), 'rb') as handle:
-            full_ds_smoke_rows = pickle.load(handle)
-        print(full_ds_smoke_rows)
-        PL_smoke_row = find_PL_smoke_row(full_ds_smoke_rows)
-        sat_fns_to_dl.extend(PL_smoke_row['sat_fns'])
-        smoke_rows.append(PL_smoke_row)
-        
+        ts_start = smoke.loc[idx]['Start']
+        ts_end = smoke.loc[idx]['End']
+        density = row['Density']
+        unique_str = str(ts_start) + str(ts_end) + density + str(idx)
+        rand_xy = get_deterministic_random_xy(unique_str)
+        lat = centers.loc[idx].y
+        lon = centers.loc[idx].x
+        sat_num, valid_times = sza_sat_valid_times(lat, lon, ts_start, ts_end)
+        if valid_times and sat_num:
+            fn_heads, sat_fns = get_sat_files(valid_times, sat_num)
+        else:
+            sat_fns = None
+        if sat_fns:
+            for sample_idx, sat_fn_entry in enumerate(sat_fns):
+                if doesnt_already_exists(yr, dn, fn_heads[sample_idx], idx, density) and PL_sample_exists(yr, dn, fn_heads[sample_idx], idx, density):
+                    sat_fns_to_dl.extend(sat_fn_entry)
+                    smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': density, 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry, 'yr': yr, 'dn': dn}
+                    smoke_rows.append(smoke_row_ind)
 
     sat_fns_to_dl = check_goes_exists(sat_fns_to_dl)
 
@@ -140,6 +138,7 @@ def create_smoke_rows(smoke, yr, dn):
             smoke_rows_final.append(smoke_row)
 
     return smoke_rows_final
+
 
 # analysts can only label data that is taken during the daytime, we want to filter for geos data that was within the timeframe the analysts are looking at
 def iter_smoke(date):

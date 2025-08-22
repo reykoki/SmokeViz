@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from pyresample import create_area_def
 from satpy import Scene
-from satpy.writers import get_enhanced_image
+from satpy.enhancements.enhancer import get_enhanced_image
 from PIL import Image, ImageOps
 import os
 import skimage
@@ -117,7 +117,7 @@ def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, fn_head, f
     smoke_lcc = smoke.to_crs(lcc_proj)
     centers = smoke_lcc.centroid
     center = centers.loc[idx0]
-    composite = 'cimss_true_color_sunz_rayleigh'
+    #composite = 'cimss_true_color_sunz_rayleigh'
     composite = 'smoke'
 
     try:
@@ -129,9 +129,9 @@ def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, fn_head, f
     except Exception as e:
         print(e)
         print('{} did not download, moving on'.format(sat_fns))
-        for sat_fn in sat_fns:
-            if os.path.exists(sat_fn):
-                os.remove(sat_fn)
+        #for sat_fn in sat_fns:
+        #    if os.path.exists(sat_fn):
+        #        os.remove(sat_fn)
         return fn_head
 
     scan_start = pytz.utc.localize(scn[composite].attrs['start_time'])
