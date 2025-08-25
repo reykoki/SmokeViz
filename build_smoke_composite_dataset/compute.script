@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
 #SBATCH --partition=u1-compute
-#SBATCH --mem=150G
+#SBATCH --mem=250G
 #SBATCH --output=./logs/create.%j.log
 #SBATCH --account=gpu-ghpcs
 #SBATCH --job-name=create
