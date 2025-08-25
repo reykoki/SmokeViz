@@ -120,6 +120,10 @@ def create_smoke_rows(smoke, yr, dn):
         if sat_fns:
             for sample_idx, sat_fn_entry in enumerate(sat_fns):
                 if doesnt_already_exists(yr, dn, fn_heads[sample_idx], idx, density) and PL_sample_exists(yr, dn, fn_heads[sample_idx], idx, density):
+                    if fn_heads[sample_idx] not in sat_fn_entry[0]:
+                        x = input('============\nstop2\n=================')
+                        print("ERROR WRONG SATELLITE FILE!!!")
+    
                     sat_fns_to_dl.extend(sat_fn_entry)
                     smoke_row_ind = {'smoke': smoke, 'idx': idx, 'bounds': bounds.loc[idx], 'density': density, 'sat_file_locs': [], 'Start': ts_start, 'rand_xy': rand_xy, 'sat_fns': sat_fn_entry, 'yr': yr, 'dn': dn}
                     smoke_rows.append(smoke_row_ind)
