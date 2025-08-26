@@ -1,6 +1,6 @@
 import shutil
 import hashlib
-from multiprocessing import Pool
+import multiprocessing
 import pickle
 import cartopy.crs as ccrs
 import glob
@@ -91,6 +91,9 @@ def PL_sample_exists(yr, dn, fn_head, idx, density):
     return False 
 
 
+def process_each_row(row, sat
+
+
 # create object that contians all the smoke information needed
 def create_smoke_rows(smoke, yr, dn):
     print(yr, dn, '\n')
@@ -131,8 +134,13 @@ def create_smoke_rows(smoke, yr, dn):
     sat_fns_to_dl = check_goes_exists(sat_fns_to_dl)
 
     if sat_fns_to_dl:
-        p = Pool(8)
+        print('cpu count: {}'.format(multiprocessing.cpu_count()))
+        num_cpus = min([int(multiprocessing.cpu_count()/8), len(sat_fns_to_dl)])
+        p = multiprocessing.Pool(num_cpus)
         p.map(download_sat_files, sat_fns_to_dl)
+        p.close()
+        p.join()
+
 
     smoke_rows_final = []
     for smoke_row in smoke_rows:
