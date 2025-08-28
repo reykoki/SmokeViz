@@ -201,9 +201,24 @@ def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=
     dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=False, sampler=sampler)
     return dataloader
 
-def main(rank, world_size, config_fn):
 
-    exp_num = config_fn.split('exp')[-1].split('.json')[0]
+def set_seed(rank):
+    seed = 0 
+    torch.manual_seed(seed + rank)  # set each rank a different seed 
+    torch.cuda.manual_seed_all(seed + rank)
+    cudnn.deterministic = True  
+    cudnn.benchmark = False  
+    return
+
+
+def main(rank, world_size, config_fn):
+    set_seed(rank)
+    torch.manual_seed(0)
+    cudnn.deterministic = True
+    cudnn.benchmark = False
+
+    #exp_num = config_fn.split('exp')[-1].split('.json')[0]
+    exp_num = '0'
     with open(config_fn) as fn:
         cfg = json.load(fn)
     arch = cfg['architecture']
@@ -240,7 +255,7 @@ def main(rank, world_size, config_fn):
 
     use_ckpt = False
     use_recent = False
-    #use_ckpt = True
+    use_ckpt = True
     #use_recent = True
     ckpt_save_loc = './Mie_models/'
     ckpt_loc = None
@@ -291,10 +306,7 @@ def main(rank, world_size, config_fn):
 
 
 if __name__ == '__main__':
-    torch.manual_seed(0)
-    cudnn.deterministic = True
-    cudnn.benchmark = False
-    world_size = 8 # num gpus
+    world_size = 2 # num gpus
     if len(sys.argv) < 2:
         print('\n YOU DIDNT SPECIFY EXPERIMENT NUMBER! ', flush=True)
     config_fn = str(sys.argv[1])
