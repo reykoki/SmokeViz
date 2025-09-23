@@ -25,11 +25,11 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def get_iou(high_iou, med_iou, low_iou):
-    intersection = high_iou[0] + med_iou[0] + low_iou[0]
-    union = high_iou[1] + med_iou[1] + low_iou[1]
     print("high IoU: {}".format(high_iou[0]/high_iou[1]))
     print("med IoU: {}".format(med_iou[0]/med_iou[1]))
     print("low IoU: {}".format(low_iou[0]/low_iou[1]))
+    intersection = high_iou[0] + med_iou[0] + low_iou[0]
+    union = high_iou[1] + med_iou[1] + low_iou[1]
     overall_iou = intersection/union
     print("overall IoU: {}".format(overall_iou))
     return overall_iou, high_iou[0]/high_iou[1]
@@ -42,8 +42,9 @@ class IoUCalculator(object):
         self.reset()
 
     def reset(self):
-        self.intersection = 0
-        self.union = 0
+        device = torch.device(f"cuda:{dist.get_rank()}")
+        self.intersection = torch.tensor(0.0, device=device)
+        self.union = torch.tensor(0.0, device=device)
 
     def update(self, pred, truth):
         pred = torch.sigmoid(pred)
@@ -54,9 +55,8 @@ class IoUCalculator(object):
         self.union += curr_union
 
     def all_reduce(self):
-        rank = torch.device(f"cuda:{dist.get_rank()}")
-        total = torch.tensor([self.intersection, self.union], dtype=torch.float32, device=rank)
-        dist.all_reduce(total, dist.ReduceOp.SUM, async_op=False)
+        total = torch.stack([self.intersection, self.union])
+        dist.all_reduce(total, dist.ReduceOp.SUM)
         return total
 
 def setup(rank, world_size):
