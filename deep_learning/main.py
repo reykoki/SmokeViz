@@ -67,10 +67,16 @@ def setup(rank, world_size):
     dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
 
 
+def earth_mover_distance(y_pred, y_true):
+    y_pred = torch.sigmoid(y_pred)
+    emd = torch.mean(torch.square(torch.cumsum(y_true, dim=1) - torch.cumsum(y_pred, dim=1)))  #abs/square for L1/L2
+    return emd
+
 def val_model(dataloader, model, criterion, rank):
     model.eval()
     torch.set_grad_enabled(False)
     total_loss = 0.0
+    num_batches = 0
     high_iou = IoUCalculator('high')
     med_iou = IoUCalculator('medium')
     low_iou = IoUCalculator('low')
@@ -78,22 +84,25 @@ def val_model(dataloader, model, criterion, rank):
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
         preds = model(batch_data)
+
+        #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
         high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
         med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
         loss = 3*high_loss + 2*med_loss + low_loss
-        test_loss = loss.item()
-        total_loss += test_loss
+
+        total_loss += loss.detach()
+        num_batches += 1
         high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
         med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
         low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
-    final_loss = total_loss/len(dataloader)
-    loss_tensor = torch.tensor([final_loss]).to(rank)
-    dist.all_reduce(loss_tensor)
-    loss_tensor /= 8
+
+    avg_loss = total_loss / num_batches
+    dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
+    avg_loss /= dist.get_world_size()
     if rank==0:
-        print("Validation Loss: {}".format(loss_tensor[0]), flush=True)
-    return final_loss, high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
+        print(f"Validation Loss: {avg_loss.item():.6f}", flush=True)
+    return avg_loss.item(), high_iou.all_reduce(), med_iou.all_reduce(), low_iou.all_reduce()
 
 def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
 
@@ -151,6 +160,7 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
     model.train()
     torch.set_grad_enabled(True)
     start = time.time()
+    num_batches = 0
     for data in train_dataloader:
 
         optimizer.zero_grad() # zero the parameter gradients
@@ -159,20 +169,29 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
 
         preds = model(batch_data)
 
+        #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
         high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
         med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
-        loss = 6*high_loss + 4*med_loss + low_loss
-        total_loss += loss.item()
+        loss = 3*high_loss + 2*med_loss + low_loss
+
+        total_loss += loss.detach()
+        num_batches += 1
 
         # compute gradient and do step
         loss.backward()
         optimizer.step()
 
-    epoch_loss = total_loss/len(train_dataloader)
+    avg_loss = total_loss / num_batches
+    dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
+    avg_loss /= dist.get_world_size()
+
     if rank==0:
         print('training time: ', np.round(time.time() - start, 2), flush=True)
-        print("training loss:   {}".format(np.round(epoch_loss,4)), flush=True)
+        print(f"training loss: {avg_loss.item():.6f}", flush=True)
+
+    return
+
 
 def get_subset_train(data_dict):
     subset_data_dict = {'train':{'data':[], 'truth':[]}}
