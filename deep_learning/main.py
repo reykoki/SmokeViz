@@ -74,7 +74,6 @@ def earth_mover_distance(y_pred, y_true):
 
 def val_model(dataloader, model, criterion, rank):
     model.eval()
-    torch.set_grad_enabled(False)
     total_loss = 0.0
     num_batches = 0
     high_iou = IoUCalculator('high')
@@ -91,14 +90,14 @@ def val_model(dataloader, model, criterion, rank):
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
         loss = 3*high_loss + 2*med_loss + low_loss
 
-        total_loss += loss.detach()
+        total_loss += loss.item()
         num_batches += 1
         high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
         med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
         low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
 
-    avg_loss = total_loss / num_batches
-    dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
+    avg_loss = torch.tensor([total_loss / num_batches], device=rank)
+    dist.all_reduce(avg_loss)
     avg_loss /= dist.get_world_size()
     if rank==0:
         print(f"Validation Loss: {avg_loss.item():.6f}", flush=True)
@@ -158,7 +157,6 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
 def train_model(train_dataloader, model, criterion, optimizer, rank):
     total_loss = 0.0
     model.train()
-    torch.set_grad_enabled(True)
     start = time.time()
     num_batches = 0
     for data in train_dataloader:
@@ -175,20 +173,20 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
         low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
         loss = 3*high_loss + 2*med_loss + low_loss
 
-        total_loss += loss.detach()
+        total_loss += loss.item()
         num_batches += 1
 
         # compute gradient and do step
         loss.backward()
         optimizer.step()
 
-    avg_loss = total_loss / num_batches
-    dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
+    avg_loss = torch.tensor([total_loss / num_batches], device=rank)
+    dist.all_reduce(avg_loss)
     avg_loss /= dist.get_world_size()
 
     if rank==0:
         print('training time: ', np.round(time.time() - start, 2), flush=True)
-        print(f"training loss: {avg_loss.item():.6f}", flush=True)
+        print(f"training loss: {avg_loss:.6f}", flush=True)
 
     return
 
@@ -222,11 +220,11 @@ def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=
 
 
 def set_seed(rank):
-    seed = 0 
+    seed = 0
     torch.manual_seed(seed + rank)  # set each rank a different seed 
     torch.cuda.manual_seed_all(seed + rank)
-    cudnn.deterministic = True  
-    cudnn.benchmark = False  
+    cudnn.deterministic = True
+    cudnn.benchmark = False
     return
 
 
