@@ -1,4 +1,5 @@
 import shutil
+import pickle
 import sys
 import os
 import glob
@@ -15,15 +16,14 @@ import time
 global ray_par_dir
 ray_par_dir = "/tmp/"
 global full_data_dir
-full_data_dir = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/full_dataset/'
+full_data_dir = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/full_dataset/'
 
 def get_file_list(idx, yr, dn):
     truth_file_list = []
     truth_file_list = glob.glob('{}truth/{}/*/{}/*_{}.tif'.format(full_data_dir, yr, dn, idx))
     truth_file_list.sort()
-    print(truth_file_list)
     data_file_list = [s.replace('truth','data') for s in truth_file_list]
-    print('number of samples for idx:', len(truth_file_list))
+    #print('number of samples for idx:', len(truth_file_list))
     data_dict = {'find': {'truth': truth_file_list, 'data': data_file_list}}
     return data_dict
 
@@ -45,59 +45,58 @@ def compute_iou(preds, truths):
         print(e)
     return 0
 
-def create_idx_PLDR_dict(dataloader, model, smoke_idx):
-    model.eval()
+def create_idx_PLDR_dict(dataloader, model, smoke_idx, device):
     torch.set_grad_enabled(False)
-    idx_PLDR_dict = {smoke_idx: {'fns':[], 'IoUs' [], 'best_IoU_fn': None, 'best_IoU': 0}}
+    idx_PLDR_dict = {smoke_idx: {'fns': [], 'IoUs': [], 'best_IoU_fn': None, 'best_IoU': 0}}
     for dl_idx, data in enumerate(dataloader):
-        batch_data, batch_labels, data_fn = data
+        batch_data, batch_labels, truth_fn = data
         batch_data, batch_labels = batch_data.to(device, dtype=torch.float), batch_labels.to(device, dtype=torch.float)
         preds = model(batch_data)
         iou = compute_iou(preds, batch_labels)
-        idx_PLDR_dict[smoke_idx]['IoUs'].append(iou)
-        idx_PLDR_dict[smoke_idx]['fns'].append(data_fn)
+        idx_PLDR_dict[smoke_idx]['IoUs'].append(iou.item())
+        idx_PLDR_dict[smoke_idx]['fns'].append(truth_fn[0])
         if iou > idx_PLDR_dict[smoke_idx]['best_IoU']:
-            idx_PLDR_dict[smoke_idx]['best_IoU'] = iou
-            idx_PLDR_dict[smoke_idx]['best_IoU_fn'] = data_fn[0]
-    print("IoU scores: {}".format(idx_PLDR_dict[smoke_idx]['IoUs'], flush=True))
+            idx_PLDR_dict[smoke_idx]['best_IoU'] = iou.item()
+            idx_PLDR_dict[smoke_idx]['best_IoU_fn'] = truth_fn[0]
+    #print("IoU scores: {}".format(idx_PLDR_dict[smoke_idx]['IoUs']), flush=True)
     return idx_PLDR_dict
 
 @ray.remote(max_calls=1)
 def run_model(idx_info):
-    idx = idx_info['idx']
+    smoke_idx = idx_info['idx']
     yr = idx_info['yr']
     dn = idx_info['dn']
-
-    data_dict = get_file_list(idx, yr, dn)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    data_dict = get_file_list(smoke_idx, yr, dn)
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     data_transforms = transforms.Compose([transforms.ToTensor()])
     test_set = SmokeDataset(data_dict['find'], data_transforms)
-    print('there are {} images for this annotation'.format(len(test_set)))
+    print('there are {} images for annotation idx {}'.format(len(test_set), smoke_idx))
     test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=1, shuffle=False)
 
-    model = smp.DeepLabV3Plus(
+    model = smp.create_model(
+            arch="PSPNet",
+            #arch="DeepLabV3Plus",
             encoder_name="timm-efficientnet-b2",
             encoder_weights=None,
-            in_channels=3,
-            classes=3,
+            in_channels=3, # model input channels
+            classes=3 # model output channels
     )
+
     model = model.to(device)
-    chkpt_path = './models/ckpt2.pth'
-    checkpoint = torch.load(chkpt_path, map_location=torch.device(device), weights_only=False)
+    model.eval()
+    chkpt_path = './models/PSPNet_Mie.pth'
+    #chkpt_path = './models/ckpt2.pth'
+    checkpoint = torch.load(chkpt_path, map_location=torch.device(device))
     model.load_state_dict(checkpoint['model_state_dict'])
-    idx_PLDR_dict = create_idx_PLDR_dict(test_loader, model, smoke_idx)
+    idx_PLDR_dict = create_idx_PLDR_dict(test_loader, model, smoke_idx, device)
     return idx_PLDR_dict
 
 def indices_dont_exist(yr, dn, indices):
     day_list = []
-    for idx in indices:
-        file_list = glob.glob('{}truth/{}/*/{}/*_{}.tif'.format(master_PL_dir, yr, dn, idx))
-        if len(file_list) > 0:
-            print("PSEUDO THAT ALREADY EXIST:", file_list, flush=True)
-        low_iou_file_list = glob.glob('{}low_iou/{}{}_{}'.format(master_PL_dir, yr, dn, idx))
-        if len(low_iou_file_list) > 0:
-            print("LOW IOU FILE:", low_iou_file_list, flush=True)
-        if len(file_list) == 0 and len(low_iou_file_list) == 0:
+    pkl_fn = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/PLDR_IoUs/round1/PLDR_{}_{}.pkl".format(yr, dn)
+    if os.path.exists(pkl_fn) is False:
+        for idx in indices:
             day_list.append({'yr': yr, 'dn': dn, 'idx': idx})
     return day_list
 
@@ -113,32 +112,36 @@ def get_indices(yr, dn):
     day_list = indices_dont_exist(yr, dn, indices)
     return day_list
 
-def mv_files(truth_src, yr, dn, curr_PL_dir):
-    truth_dst = truth_src.replace(full_data_dir, curr_PL_dir)
-    data_src = truth_src.replace('truth','data')
-    data_dst = truth_dst.replace('truth','data')
-    if not os.path.exists(truth_dst):
-        os.symlink(truth_src, truth_dst)
-    if not os.path.exists(data_dst):
-        os.symlink(data_src, data_dst)
-
 def find_best_data(yr, dn):
     start = time.time()
     idx_list = get_indices(yr, dn)
     if idx_list:
-        print(idx_list)
+        #print(idx_list)
         ray_dir = "{}{}{}pseudo".format(ray_par_dir,yr,dn)
         if not os.path.isdir(ray_dir):
             os.mkdir(ray_dir)
-        ray.init(num_cpus=24, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
-        ray.get([run_model.remote(idx_dict) for idx_dict in idx_list])
+        ray.init(num_cpus=24, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True)
+        list_of_idx_PLDR_dicts = ray.get([run_model.remote(idx_dict) for idx_dict in idx_list])
         ray.shutdown()
-        shutil.rmtree(ray_dir)
+        if os.path.exists(ray_dir):
+            shutil.rmtree(ray_dir)
+        PLDR_dict = {}
+        for idx_PLDR_dict in list_of_idx_PLDR_dicts:
+            smoke_idx = list(idx_PLDR_dict.keys())[0]
+            print(smoke_idx)
+            print(idx_PLDR_dict[smoke_idx]['IoUs'])
+            print(idx_PLDR_dict[smoke_idx]['best_IoU_fn'])
+            print(idx_PLDR_dict[smoke_idx]['best_IoU'])
+            PLDR_dict.update(idx_PLDR_dict)
+        pkl_fn = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/PLDR_IoUs/round1/PLDR_{}_{}.pkl".format(yr, dn)
+        with open(pkl_fn, 'wb') as f:
+            pickle.dump(PLDR_dict, f)
     print("Time elapsed for pseudo labeling for day {}{}: {}s".format(yr, dn, int(time.time() - start)), flush=True)
 
 def main(start_dn, end_dn, yr):
     dates = []
     dns = list(range(int(start_dn), int(end_dn)+1))
+    print(dns)
     #dns.reverse()
     for dn in dns:
         dn = str(dn).zfill(3)
@@ -148,7 +151,4 @@ if __name__ == '__main__':
     start_dn = sys.argv[1]
     end_dn = sys.argv[2]
     yr = sys.argv[3]
-    global master_PL_dir
-    master_PL_dir = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/PL_25/'
-
     main(start_dn, end_dn, yr)
