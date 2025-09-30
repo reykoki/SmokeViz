@@ -107,7 +107,7 @@ def sza_sat_valid_times(lat, lon, start_dt, end_dt, res=1000, img_size=256):
     sat, lat, lon = get_best_sat_from_szas(w_coords, e_coords, img_times)
     # FOR BUILDING OPPOSITE SATELLITE DATASET
     #sat, lat, lon = get_worst_sat_from_szas(w_coords, e_coords, img_times)
-    valid_times = valid_times_from_szas(lat,lon, img_times)
+    valid_times = valid_times_from_szas(lat, lon, img_times)
     return sat, valid_times
 
 

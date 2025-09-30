@@ -1,5 +1,6 @@
 import shutil
-from multiprocessing import Pool
+import hashlib
+import multiprocessing
 import pickle
 import cartopy.crs as ccrs
 import glob
