@@ -1,0 +1,827 @@
+W0930 20:29:20.314000 3103823 site-packages/torch/multiprocessing/spawn.py:169] Terminating process 3103835 via signal SIGTERM
+Traceback (most recent call last):
+  File "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/test_thresh.py", line 232, in <module>
+    mp.spawn(main, args=(world_size), nprocs=world_size, join=True)
+  File "/scratch3/BMC/gpu-ghpcs/Rey.Koki/miniconda/envs/cloud/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/scratch3/BMC/gpu-ghpcs/Rey.Koki/miniconda/envs/cloud/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+  File "/scratch3/BMC/gpu-ghpcs/Rey.Koki/miniconda/envs/cloud/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 215, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 0 terminated with the following error:
+Traceback (most recent call last):
+  File "/scratch3/BMC/gpu-ghpcs/Rey.Koki/miniconda/envs/cloud/lib/python3.12/site-packages/torch/multiprocessing/spawn.py", line 90, in _wrap
+    fn(i, *args)
+TypeError: Value after * must be an iterable, not int
+
+=====================================
+=====================================
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_005.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  19197
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 175.03
+high IoU: 0.3001505136489868
+med IoU: 0.4133140742778778
+low IoU: 0.6182741522789001
+Overall IoU: 0.5511659979820251
+Overall recall all density smoke: 0.6518770456314087
+high recall: 0.3977977931499481
+med recall: 0.5182174444198608
+low recall: 0.7113881707191467
+Overall precision all density smoke: 0.7810646295547485
+high precision: 0.5501089692115784
+med precision: 0.6712418794631958
+low precision: 0.8252846598625183
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_01.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  18974
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 29.04
+high IoU: 0.29915156960487366
+med IoU: 0.4148715138435364
+low IoU: 0.6250826120376587
+Overall IoU: 0.5557927489280701
+Overall recall all density smoke: 0.6564051508903503
+high recall: 0.3960946798324585
+med recall: 0.5193885564804077
+low recall: 0.7179876565933228
+Overall precision all density smoke: 0.7838324904441833
+high precision: 0.5500133037567139
+med precision: 0.6733806729316711
+low precision: 0.8284955620765686
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_05.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  17902
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 27.01
+high IoU: 0.29942259192466736
+med IoU: 0.42003268003463745
+low IoU: 0.6483539938926697
+Overall IoU: 0.5711472034454346
+Overall recall all density smoke: 0.6734610795974731
+high recall: 0.396921843290329
+med recall: 0.5245874524116516
+low recall: 0.7427207231521606
+Overall precision all density smoke: 0.7898924350738525
+high precision: 0.5493377447128296
+med precision: 0.6781924962997437
+low precision: 0.8361440300941467
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_1.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  16794
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 24.06
+high IoU: 0.29845520853996277
+med IoU: 0.425971120595932
+low IoU: 0.671249508857727
+Overall IoU: 0.5865328311920166
+Overall recall all density smoke: 0.6902021169662476
+high recall: 0.39506644010543823
+med recall: 0.5315990447998047
+low recall: 0.766289234161377
+Overall precision all density smoke: 0.7961254715919495
+high precision: 0.5496417880058289
+med precision: 0.6819142699241638
+low precision: 0.8440465927124023
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_15.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  15662
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 33.21
+high IoU: 0.30259159207344055
+med IoU: 0.430051326751709
+low IoU: 0.6878907084465027
+Overall IoU: 0.5970504879951477
+Overall recall all density smoke: 0.7014012932777405
+high recall: 0.4016406536102295
+med recall: 0.5366938710212708
+low recall: 0.7824007272720337
+Overall precision all density smoke: 0.8005234003067017
+high precision: 0.5509651899337769
+med precision: 0.6839737892150879
+low precision: 0.8506279587745667
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_2.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  14524
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 92.37
+high IoU: 0.3017169237136841
+med IoU: 0.43410661816596985
+low IoU: 0.7046440839767456
+Overall IoU: 0.6079826951026917
+Overall recall all density smoke: 0.7114646434783936
+high recall: 0.39978957176208496
+med recall: 0.5409031510353088
+low recall: 0.7969610691070557
+Overall precision all density smoke: 0.8069509863853455
+high precision: 0.5515570640563965
+med precision: 0.6873693466186523
+low precision: 0.8588189482688904
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_25.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  13343
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 21.69
+high IoU: 0.3046952784061432
+med IoU: 0.43845653533935547
+low IoU: 0.7197756767272949
+Overall IoU: 0.6176489591598511
+Overall recall all density smoke: 0.7208086252212524
+high recall: 0.4039149582386017
+med recall: 0.5469195246696472
+low recall: 0.8097522258758545
+Overall precision all density smoke: 0.8118782043457031
+high precision: 0.5536488890647888
+med precision: 0.6885605454444885
+low precision: 0.8662688136100769
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_3.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  12153
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 20.78
+high IoU: 0.3047516345977783
+med IoU: 0.4417301416397095
+low IoU: 0.7347481846809387
+Overall IoU: 0.6266969442367554
+Overall recall all density smoke: 0.7285951375961304
+high recall: 0.4038572907447815
+med recall: 0.5521035194396973
+low recall: 0.8206542730331421
+Overall precision all density smoke: 0.817552387714386
+high precision: 0.5539434552192688
+med precision: 0.6884344220161438
+low precision: 0.8752960562705994
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_35.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  10915
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+time to run testing: 21.02
+high IoU: 0.31255677342414856
+med IoU: 0.45211464166641235
+low IoU: 0.7512667179107666
+Overall IoU: 0.6387060284614563
+Overall recall all density smoke: 0.7385883331298828
+high recall: 0.4153403639793396
+med recall: 0.5642538070678711
+low recall: 0.8317908644676208
+Overall precision all density smoke: 0.8252654671669006
+high precision: 0.5581121444702148
+med precision: 0.6946488618850708
+low precision: 0.8858494758605957
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_4.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_005.json
+number of test samples:  9789
+model trained on threshold: .005
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258713.pth
+=====================================
+time to run testing: 19.39
+high IoU: 0.3141913115978241
+med IoU: 0.45629259943962097
+low IoU: 0.7656990885734558
+Overall IoU: 0.6475364565849304
+Overall recall all density smoke: 0.7451187372207642
+high recall: 0.41908377408981323
+med recall: 0.5699170231819153
+low recall: 0.8402148485183716
+Overall precision all density smoke: 0.831775963306427
+high precision: 0.5566018223762512
+med precision: 0.695925772190094
+low precision: 0.896198570728302
+=====================================
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_005.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  19197
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 57.44
+high IoU: 0.23428235948085785
+med IoU: 0.3574715256690979
+low IoU: 0.5906937718391418
+Overall IoU: 0.5189080834388733
+Overall recall all density smoke: 0.5920294523239136
+high recall: 0.27462974190711975
+med recall: 0.4115537106990814
+low recall: 0.6707718372344971
+Overall precision all density smoke: 0.8077424764633179
+high precision: 0.6145951151847839
+med precision: 0.7312030792236328
+low precision: 0.8318743109703064
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_01.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  18974
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 91.45
+high IoU: 0.23405326902866364
+med IoU: 0.3590594530105591
+low IoU: 0.5969212651252747
+Overall IoU: 0.5231871008872986
+Overall recall all density smoke: 0.5958196520805359
+high recall: 0.2741605043411255
+med recall: 0.41283079981803894
+low recall: 0.6764110922813416
+Overall precision all density smoke: 0.8110288381576538
+high precision: 0.6153719425201416
+med precision: 0.7338079214096069
+low precision: 0.835511326789856
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_05.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  17902
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 35.58
+high IoU: 0.23443222045898438
+med IoU: 0.36256611347198486
+low IoU: 0.6200375556945801
+Overall IoU: 0.5381986498832703
+Overall recall all density smoke: 0.6105669736862183
+high recall: 0.27406442165374756
+med recall: 0.415272980928421
+low recall: 0.6996713280677795
+Overall precision all density smoke: 0.8195189237594604
+high precision: 0.6184871792793274
+med precision: 0.7407061457633972
+low precision: 0.8449063301086426
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_1.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  16794
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 23.53
+high IoU: 0.23277994990348816
+med IoU: 0.36781567335128784
+low IoU: 0.6400376558303833
+Overall IoU: 0.5513800978660583
+Overall recall all density smoke: 0.6239593029022217
+high recall: 0.27237486839294434
+med recall: 0.4215734004974365
+low recall: 0.7193222641944885
+Overall precision all density smoke: 0.8257896900177002
+high precision: 0.6155769228935242
+med precision: 0.742563009262085
+low precision: 0.8530890941619873
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_15.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  15662
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 23.04
+high IoU: 0.23741108179092407
+med IoU: 0.37261027097702026
+low IoU: 0.6572165489196777
+Overall IoU: 0.5626629590988159
+Overall recall all density smoke: 0.6351463794708252
+high recall: 0.27785176038742065
+med recall: 0.426596999168396
+low recall: 0.7361088991165161
+Overall precision all density smoke: 0.8313775658607483
+high precision: 0.6199390292167664
+med precision: 0.7464709877967834
+low precision: 0.8597906827926636
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_2.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  14524
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 21.86
+high IoU: 0.2364538162946701
+med IoU: 0.3748134970664978
+low IoU: 0.6737735867500305
+Overall IoU: 0.5730926394462585
+Overall recall all density smoke: 0.6441832780838013
+high recall: 0.2765997648239136
+med recall: 0.4284680485725403
+low recall: 0.7503682971000671
+Overall precision all density smoke: 0.8385283350944519
+high precision: 0.6196463704109192
+med precision: 0.7495704293251038
+low precision: 0.8684329986572266
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_25.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  13343
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 21.76
+high IoU: 0.2394006848335266
+med IoU: 0.37933334708213806
+low IoU: 0.6904112100601196
+Overall IoU: 0.5838500261306763
+Overall recall all density smoke: 0.653400719165802
+high recall: 0.2799803912639618
+med recall: 0.4337945580482483
+low recall: 0.763721227645874
+Overall precision all density smoke: 0.8457988500595093
+high precision: 0.6228905916213989
+med precision: 0.7513346672058105
+low precision: 0.8779370188713074
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_3.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  12153
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 20.96
+high IoU: 0.23838303983211517
+med IoU: 0.3831358551979065
+low IoU: 0.7056251168251038
+Overall IoU: 0.5932746529579163
+Overall recall all density smoke: 0.6609137058258057
+high recall: 0.2792278528213501
+med recall: 0.4383997321128845
+low recall: 0.7748542428016663
+Overall precision all density smoke: 0.8528760075569153
+high precision: 0.6197227239608765
+med precision: 0.7524358630180359
+low precision: 0.8876124024391174
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_35.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  10915
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+time to run testing: 20.49
+high IoU: 0.2449689507484436
+med IoU: 0.3917083144187927
+low IoU: 0.7221270799636841
+Overall IoU: 0.6045985817909241
+Overall recall all density smoke: 0.6692039966583252
+high recall: 0.28728026151657104
+med recall: 0.4479127824306488
+low recall: 0.7852672934532166
+Overall precision all density smoke: 0.8623088002204895
+high precision: 0.6245204210281372
+med precision: 0.7573791742324829
+low precision: 0.899809718132019
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_4.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_01.json
+number of test samples:  9789
+model trained on threshold: .01
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254945.pth
+=====================================
+time to run testing: 20.01
+high IoU: 0.24633438885211945
+med IoU: 0.39684000611305237
+low IoU: 0.7375539541244507
+Overall IoU: 0.6144838929176331
+Overall recall all density smoke: 0.6767585277557373
+high recall: 0.28962454199790955
+med recall: 0.45412373542785645
+low recall: 0.7954186201095581
+Overall precision all density smoke: 0.8697543144226074
+high precision: 0.6223640441894531
+med precision: 0.7588036060333252
+low precision: 0.9102217555046082
+=====================================
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_005.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  19197
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 37.75
+high IoU: 0.29412373900413513
+med IoU: 0.37370210886001587
+low IoU: 0.6181232929229736
+Overall IoU: 0.5434123873710632
+Overall recall all density smoke: 0.6363247036933899
+high recall: 0.37748512625694275
+med recall: 0.4474940896034241
+low recall: 0.7141090035438538
+Overall precision all density smoke: 0.7882093787193298
+high precision: 0.5711615085601807
+med precision: 0.6938363909721375
+low precision: 0.821386456489563
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_01.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  18974
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 32.27
+high IoU: 0.2939486801624298
+med IoU: 0.37508273124694824
+low IoU: 0.624457597732544
+Overall IoU: 0.5476569533348083
+Overall recall all density smoke: 0.6402198076248169
+high recall: 0.3762335181236267
+med recall: 0.4489605724811554
+low recall: 0.7198603749275208
+Overall precision all density smoke: 0.791141152381897
+high precision: 0.5733845233917236
+med precision: 0.6950664520263672
+low precision: 0.824924886226654
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_05.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  17902
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 82.51
+high IoU: 0.2960357666015625
+med IoU: 0.37993496656417847
+low IoU: 0.6491597890853882
+Overall IoU: 0.5640407204627991
+Overall recall all density smoke: 0.6560370326042175
+high recall: 0.3768533766269684
+med recall: 0.4523690640926361
+low recall: 0.7441778182983398
+Overall precision all density smoke: 0.8008858561515808
+high precision: 0.5799056887626648
+med precision: 0.7035093307495117
+low precision: 0.8356397747993469
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_1.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  16794
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 84.71
+high IoU: 0.2962431013584137
+med IoU: 0.38506102561950684
+low IoU: 0.6694311499595642
+Overall IoU: 0.5772936344146729
+Overall recall all density smoke: 0.669768750667572
+high recall: 0.37740710377693176
+med recall: 0.4587482511997223
+low recall: 0.7640742659568787
+Overall precision all density smoke: 0.8069931864738464
+high precision: 0.5793920159339905
+med precision: 0.7056434750556946
+low precision: 0.8438589572906494
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_15.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  15662
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 24.29
+high IoU: 0.295931875705719
+med IoU: 0.3898795545101166
+low IoU: 0.6872894167900085
+Overall IoU: 0.58857262134552
+Overall recall all density smoke: 0.6808827519416809
+high recall: 0.37723737955093384
+med recall: 0.464009553194046
+low recall: 0.7810003757476807
+Overall precision all density smoke: 0.8127807378768921
+high precision: 0.5786014795303345
+med precision: 0.7093372344970703
+low precision: 0.8513666391372681
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_2.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  14524
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 22.14
+high IoU: 0.29703661799430847
+med IoU: 0.39276161789894104
+low IoU: 0.7051373720169067
+Overall IoU: 0.5999701619148254
+Overall recall all density smoke: 0.691479504108429
+high recall: 0.37924423813819885
+med recall: 0.46693646907806396
+low recall: 0.7968626022338867
+Overall precision all density smoke: 0.8192859292030334
+high precision: 0.5781130790710449
+med precision: 0.712020218372345
+low precision: 0.8596663475036621
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_25.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  13343
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 25.61
+high IoU: 0.3008200228214264
+med IoU: 0.3980676829814911
+low IoU: 0.7225803732872009
+Overall IoU: 0.6114495396614075
+Overall recall all density smoke: 0.7008896470069885
+high recall: 0.3833872973918915
+med recall: 0.4724757969379425
+low recall: 0.810322642326355
+Overall precision all density smoke: 0.8273352384567261
+high precision: 0.5827781558036804
+med precision: 0.7165248990058899
+low precision: 0.8696765899658203
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_3.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  12153
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 37.15
+high IoU: 0.29623356461524963
+med IoU: 0.4025722146034241
+low IoU: 0.7396813035011292
+Overall IoU: 0.6219661831855774
+Overall recall all density smoke: 0.7088322639465332
+high recall: 0.3776531517505646
+med recall: 0.4774561822414398
+low recall: 0.8222776055335999
+Overall precision all density smoke: 0.8353984355926514
+high precision: 0.5787765979766846
+med precision: 0.7196350693702698
+low precision: 0.8804371356964111
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_35.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  10915
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+time to run testing: 21.23
+high IoU: 0.30707380175590515
+med IoU: 0.4107606112957001
+low IoU: 0.7576143145561218
+Overall IoU: 0.6342316269874573
+Overall recall all density smoke: 0.7188642024993896
+high recall: 0.3917994797229767
+med recall: 0.48745018243789673
+low recall: 0.8345220685005188
+Overall precision all density smoke: 0.8434351086616516
+high precision: 0.5867788195610046
+med precision: 0.7230573296546936
+low precision: 0.8915500044822693
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_4.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_05.json
+number of test samples:  9789
+model trained on threshold: .05
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759256011.pth
+=====================================
+time to run testing: 19.62
+high IoU: 0.3076557219028473
+med IoU: 0.41471579670906067
+low IoU: 0.7740836143493652
+Overall IoU: 0.6442810297012329
+Overall recall all density smoke: 0.7267470359802246
+high recall: 0.3937870264053345
+med recall: 0.49237489700317383
+low recall: 0.8456739783287048
+Overall precision all density smoke: 0.8502510786056519
+high precision: 0.5844730734825134
+med precision: 0.7244712114334106
+low precision: 0.9014196395874023
+=====================================
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_005.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  19197
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 71.9
+high IoU: 0.2803143560886383
+med IoU: 0.3757752478122711
+low IoU: 0.6230553388595581
+Overall IoU: 0.5477049350738525
+Overall recall all density smoke: 0.6390763521194458
+high recall: 0.34580111503601074
+med recall: 0.4455505907535553
+low recall: 0.7205543518066406
+Overall precision all density smoke: 0.7929946780204773
+high precision: 0.5968056321144104
+med precision: 0.7058402299880981
+low precision: 0.8215757012367249
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_01.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  18974
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 35.17
+high IoU: 0.2798631489276886
+med IoU: 0.3759443759918213
+low IoU: 0.6290065050125122
+Overall IoU: 0.5514051914215088
+Overall recall all density smoke: 0.642332911491394
+high recall: 0.3445509970188141
+med recall: 0.4453568756580353
+low recall: 0.7260018587112427
+Overall precision all density smoke: 0.7957199811935425
+high precision: 0.5984988212585449
+med precision: 0.7069247961044312
+low precision: 0.8248090744018555
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_05.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  17902
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 24.96
+high IoU: 0.2792419493198395
+med IoU: 0.38012412190437317
+low IoU: 0.6534059047698975
+Overall IoU: 0.567141056060791
+Overall recall all density smoke: 0.6578949093818665
+high recall: 0.34429436922073364
+med recall: 0.44878870248794556
+low recall: 0.7501870393753052
+Overall precision all density smoke: 0.8043563961982727
+high precision: 0.5964334607124329
+med precision: 0.7130126357078552
+low precision: 0.8351139426231384
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_1.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  16794
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 70.15
+high IoU: 0.2793256640434265
+med IoU: 0.3853316605091095
+low IoU: 0.6749131083488464
+Overall IoU: 0.5812702178955078
+Overall recall all density smoke: 0.6720771789550781
+high recall: 0.34405043721199036
+med recall: 0.4551161825656891
+low recall: 0.7709322571754456
+Overall precision all density smoke: 0.8113946914672852
+high precision: 0.5975501537322998
+med precision: 0.7153455018997192
+low precision: 0.8442086577415466
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_15.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  15662
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 100.2
+high IoU: 0.28344517946243286
+med IoU: 0.38859090209007263
+low IoU: 0.6923925876617432
+Overall IoU: 0.5921182632446289
+Overall recall all density smoke: 0.6827006340026855
+high recall: 0.34923699498176575
+med recall: 0.45865851640701294
+low recall: 0.7875474691390991
+Overall precision all density smoke: 0.8169394731521606
+high precision: 0.6007325053215027
+med precision: 0.7178084850311279
+low precision: 0.8514241576194763
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_2.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  14524
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 33.02
+high IoU: 0.2794487178325653
+med IoU: 0.39233964681625366
+low IoU: 0.7112147212028503
+Overall IoU: 0.6041280627250671
+Overall recall all density smoke: 0.6931849718093872
+high recall: 0.3443894684314728
+med recall: 0.46225112676620483
+low recall: 0.8035910725593567
+Overall precision all density smoke: 0.8246322274208069
+high precision: 0.5970916748046875
+med precision: 0.7217686176300049
+low precision: 0.8608585000038147
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_25.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  13343
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 30.93
+high IoU: 0.2838428020477295
+med IoU: 0.39734822511672974
+low IoU: 0.7279610633850098
+Overall IoU: 0.6151213049888611
+Overall recall all density smoke: 0.7024611234664917
+high recall: 0.34920310974121094
+med recall: 0.46764683723449707
+low recall: 0.8169730305671692
+Overall precision all density smoke: 0.8318572044372559
+high precision: 0.6026225090026855
+med precision: 0.7255218029022217
+low precision: 0.8698153495788574
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_3.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  12153
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 21.13
+high IoU: 0.2806796431541443
+med IoU: 0.40030455589294434
+low IoU: 0.743837833404541
+Overall IoU: 0.6244896054267883
+Overall recall all density smoke: 0.7095951437950134
+high recall: 0.34577447175979614
+med recall: 0.47115978598594666
+low recall: 0.8282279372215271
+Overall precision all density smoke: 0.8388886451721191
+high precision: 0.598543643951416
+med precision: 0.7269154787063599
+low precision: 0.8795214295387268
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_35.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  10915
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 20.81
+high IoU: 0.29121458530426025
+med IoU: 0.4095144271850586
+low IoU: 0.7608516812324524
+Overall IoU: 0.6365431547164917
+Overall recall all density smoke: 0.718993067741394
+high recall: 0.3588820993900299
+med recall: 0.48132169246673584
+low recall: 0.8396905064582825
+Overall precision all density smoke: 0.8473488688468933
+high precision: 0.6069936752319336
+med precision: 0.7329745888710022
+low precision: 0.8901536464691162
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_4.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_1.json
+number of test samples:  9789
+model trained on threshold: .1
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759258137.pth
+time to run testing: 19.62
+high IoU: 0.29173174500465393
+med IoU: 0.41442614793777466
+low IoU: 0.7769966125488281
+Overall IoU: 0.6465378403663635
+Overall recall all density smoke: 0.7265588045120239
+high recall: 0.36083662509918213
+med recall: 0.4877438247203827
+low recall: 0.8498641848564148
+Overall precision all density smoke: 0.8544461727142334
+high precision: 0.6036936044692993
+med precision: 0.7338273525238037
+low precision: 0.900618314743042
+=====================================
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_005.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_15.json
+number of test samples:  19197
+model trained on threshold: .15
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254403.pth
+=====================================
+time to run testing: 64.46
+high IoU: 0.2751390039920807
+med IoU: 0.3945559859275818
+low IoU: 0.6231396794319153
+Overall IoU: 0.5509189367294312
+Overall recall all density smoke: 0.6645140647888184
+high recall: 0.34036985039711
+med recall: 0.49757102131843567
+low recall: 0.7392714619636536
+Overall precision all density smoke: 0.7631897926330566
+high precision: 0.5894328951835632
+med precision: 0.655853271484375
+low precision: 0.7986623048782349
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_01.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_15.json
+number of test samples:  18974
+model trained on threshold: .15
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254403.pth
+time to run testing: 28.84
+high IoU: 0.27521464228630066
+med IoU: 0.3965723514556885
+low IoU: 0.629060685634613
+Overall IoU: 0.5551590323448181
+Overall recall all density smoke: 0.668016254901886
+high recall: 0.33936116099357605
+med recall: 0.49858424067497253
+low recall: 0.7445977926254272
+Overall precision all density smoke: 0.766685426235199
+high precision: 0.5928334593772888
+med precision: 0.6596616506576538
+low precision: 0.8021402359008789
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_05.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_15.json
+number of test samples:  17902
+model trained on threshold: .15
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254403.pth
+time to run testing: 31.12
+high IoU: 0.2760182321071625
+med IoU: 0.40289509296417236
+low IoU: 0.653136670589447
+Overall IoU: 0.571488082408905
+Overall recall all density smoke: 0.6834095120429993
+high recall: 0.33945026993751526
+med recall: 0.5025586485862732
+low recall: 0.7680807113647461
+Overall precision all density smoke: 0.7772627472877502
+high precision: 0.5962994694709778
+med precision: 0.6701432466506958
+low precision: 0.8135858178138733
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_1.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_15.json
+number of test samples:  16794
+model trained on threshold: .15
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254403.pth
+time to run testing: 139.1
+high IoU: 0.2772628366947174
+med IoU: 0.4085657298564911
+low IoU: 0.6746066212654114
+Overall IoU: 0.5858659744262695
+Overall recall all density smoke: 0.698229193687439
+high recall: 0.3400077819824219
+med recall: 0.5096555352210999
+low recall: 0.7891994118690491
+Overall precision all density smoke: 0.7845102548599243
+high precision: 0.6003924608230591
+med precision: 0.6731843948364258
+low precision: 0.822883665561676
+data dict:               /scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_15.pkl
+config fn:               ./configs_thresh/testing_1/pspnet_efficientnet-b2_15.json
+number of test samples:  15662
+model trained on threshold: .15
+using this checkpoint:  ./PLDR_models/PSPNet_timm-efficientnet-b2_exp0_1759254403.pth
