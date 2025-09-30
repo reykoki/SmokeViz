@@ -213,7 +213,7 @@ def main(rank, world_size, config_fn):
         else:
             ckpt_loc = cfg['ckpt']
 
-    ckpt_loc = cfg['checkpoint']
+    ckpt_loc = cfg['ckpt']
     model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
 
     if rank==0:

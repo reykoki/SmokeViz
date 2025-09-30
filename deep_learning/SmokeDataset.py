@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import Dataset
-import skimage
+import tifffile
 
 
 class SmokeDataset(Dataset):
@@ -14,10 +14,12 @@ class SmokeDataset(Dataset):
     def __getitem__(self, idx):
         data_fn = self.data_fns['data'][idx]
         truth_fn = self.data_fns['truth'][idx]
-        data_img = skimage.io.imread(data_fn, plugin='tifffile')
-        truth_img = skimage.io.imread(truth_fn, plugin='tifffile')
+        data_img = tifffile.imread(data_fn)
+        truth_img = tifffile.imread(truth_fn)
         data_tensor = self.transform(data_img)#.unsqueeze_(0)
+        #data_tensor = torch.clip(data_tensor, min=0, max=1.25)
         truth_tensor = self.transform(truth_img)#.unsqueeze_(0)
+        truth_tensor = (truth_tensor > 0.0) * 1.0
         truth_tensor = truth_tensor.type(torch.float32)
 
         return data_tensor, truth_tensor

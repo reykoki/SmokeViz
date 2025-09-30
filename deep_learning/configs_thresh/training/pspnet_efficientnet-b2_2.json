@@ -1,0 +1,12 @@
+{
+    "architecture":"PSPNet",
+    "encoder": "timm-efficientnet-b2",
+    "ckpt": "",
+    "ckpt_save_loc": "./PLDR_models/",
+    "train_augmentations": {},
+    "lr": 1e-3,
+    "batch_size": 256,
+    "num_workers": 4,
+    "datapointer": "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_2.pkl",
+    "encoder_weights": "None"
+}

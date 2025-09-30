@@ -1,0 +1,11 @@
+{
+    "architecture":"PSPNet",
+    "encoder": "timm-efficientnet-b2",
+    "checkpoint": "./Mie_models/PSPNet_timm-efficientnet-b2_exp0_1753916198.pth",
+    "train_augmentations": {},
+    "lr": 1e-3,
+    "batch_size": 32,
+    "num_workers": 4,
+    "datapointer": "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_01.pkl",
+    "encoder_weights": "None"
+}

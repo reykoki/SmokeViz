@@ -186,10 +186,9 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
 
     if rank==0:
         print('training time: ', np.round(time.time() - start, 2), flush=True)
-        print(f"training loss: {avg_loss:.6f}", flush=True)
+        print(f"training loss: {avg_loss.item():.6f}", flush=True)
 
     return
-
 
 def get_subset_train(data_dict):
     subset_data_dict = {'train':{'data':[], 'truth':[]}}
@@ -272,9 +271,9 @@ def main(rank, world_size, config_fn):
 
     use_ckpt = False
     use_recent = False
-    use_ckpt = True
+    #use_ckpt = True
     #use_recent = True
-    ckpt_save_loc = './Mie_models/'
+    ckpt_save_loc = ckpt_loc = cfg['ckpt_save_loc']
     ckpt_loc = None
     if use_ckpt:
         if use_recent:

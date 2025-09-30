@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --job-name=random
+#SBATCH --job-name=thresh
 #SBATCH --nodes=1
 #SBATCH --ntasks=2                    # total DDP processes = 2 GPUs
 #SBATCH --cpus-per-task=20           # number of CPU threads per DDP process
 #SBATCH --mem=250G
-#SBATCH --time=12:00:00
+#SBATCH --time=8:00:00
 #SBATCH --qos=gpu
 #SBATCH --partition=u1-h100
 #SBATCH --gpus=2
@@ -17,7 +17,6 @@ module load cuda
 source /scratch3/BMC/gpu-ghpcs/Rey.Koki/miniconda/etc/profile.d/conda.sh
 conda activate cloud
 
-python test.py $CONFIG_FN
-##python test_thresh.py 
-exit 0
+python main.py $CONFIG_FN
 
+exit 0
