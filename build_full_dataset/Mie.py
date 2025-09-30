@@ -45,6 +45,19 @@ def west_east_lat_lon(lat, lon, res, img_size): # img_size - number of pixels
     lon_e, lat_e = lcc_proj(x+dist, y+dist, inverse=True) # upper right
     return (lat_w, lon_w), (lat_e, lon_e)
 
+def get_worst_sat_from_szas(w_coords, e_coords, img_times):
+    mid_time = img_times[int(len(img_times)/2)]
+    sza_west = astronomy.sun_zenith_angle(mid_time, w_coords[1], w_coords[0])
+    sza_east = astronomy.sun_zenith_angle(mid_time, e_coords[1], e_coords[0])
+    # closer to sunrise
+    if sza_west >= sza_east:
+        lat, lon = w_coords[0], w_coords[1]
+        sat = '16'
+    else:
+        lat, lon = e_coords[0], e_coords[1]
+        sat = '17'
+    return sat, lat, lon
+
 def get_best_sat_from_szas(w_coords, e_coords, img_times):
     mid_time = img_times[int(len(img_times)/2)]
     sza_west = astronomy.sun_zenith_angle(mid_time, w_coords[1], w_coords[0])
@@ -92,6 +105,8 @@ def sza_sat_valid_times(lat, lon, start_dt, end_dt, res=1000, img_size=256):
     img_times = get_time_list(start_dt, end_dt)
     w_coords, e_coords = west_east_lat_lon(lat, lon, res, img_size)
     sat, lat, lon = get_best_sat_from_szas(w_coords, e_coords, img_times)
+    # FOR BUILDING OPPOSITE SATELLITE DATASET
+    #sat, lat, lon = get_worst_sat_from_szas(w_coords, e_coords, img_times)
     valid_times = valid_times_from_szas(lat,lon, img_times)
     return sat, valid_times
 

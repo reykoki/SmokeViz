@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 from pyresample import create_area_def
 from satpy import Scene
-from satpy.writers import get_enhanced_image
+from satpy.enhancements.enhancer import get_enhanced_image
 from PIL import Image, ImageOps
 import os
 import skimage
@@ -118,6 +118,7 @@ def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, fn_head, f
     centers = smoke_lcc.centroid
     center = centers.loc[idx0]
     composite = 'cimss_true_color_sunz_rayleigh'
+    composite = 'smoke'
 
     try:
         extent = get_extent(center, rand_xy)

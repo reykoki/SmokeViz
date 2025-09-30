@@ -10,7 +10,8 @@ global client
 client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 
 def get_goes_dl_loc(yr, dn):
-    goes_dir = '$GOES_DIR'
+    #goes_dir = '$GOES_DIR'
+    goes_dir = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/GOES/'
     global goes_dl_loc
     goes_dl_loc = '{}{}/{}/'.format(goes_dir, yr, dn)
     return goes_dl_loc
@@ -142,6 +143,8 @@ def get_sat_files(time_list, sat_num):
     if len(all_sat_fns)>0:
         all_sat_fns = [list(item) for item in set(tuple(row) for row in all_sat_fns)]
         all_fn_heads = list(set(all_fn_heads))
+        all_sat_fns.sort() 
+        all_fn_heads.sort()
         return all_fn_heads, all_sat_fns
     return None, None
 

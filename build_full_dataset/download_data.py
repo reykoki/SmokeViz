@@ -22,9 +22,9 @@ from Mie import sza_sat_valid_times
 from get_goes import get_sat_files, get_goes_dl_loc, get_file_locations, download_sat_files, check_goes_exists
 
 global smoke_dir
-smoke_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/smoke/"
+smoke_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/smoke/"
 global full_data_dir
-full_data_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/full_dataset_other_sat/"
+full_data_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/full_dataset/"
 
 
 def doesnt_already_exists(yr, dn, fn_head, idx, density):
@@ -52,10 +52,14 @@ def get_lcc_proj():
 
 
 # we need a consistent random shift in the dataset per each annotation
-def get_random_xy(size=256):
+def get_deterministic_random_xy(unique_str, size=256):
     d = int(size/4)
-    x_shift = random.randint(int(-1*d), d)
-    y_shift = random.randint(int(-1*d), d)
+    h = hashlib.sha256(unique_str.encode("utf-8")).digest()
+    i1 = int.from_bytes(h[:16], "big")
+    i2 = int.from_bytes(h[16:], "big")
+    span = 2 * d + 1  # size of the range [-d, d]
+    x_shift = (i1 % span) - d
+    y_shift = (i2 % span) - d
     return (x_shift, y_shift)
 
 def smoke_utc(time_str):
@@ -76,13 +80,14 @@ def create_smoke_rows(smoke, yr, dn):
 
     for idx, row in smoke.iterrows():
         #if idx == 89:
-        rand_xy = get_random_xy()
         ts_start = smoke.loc[idx]['Start']
         ts_end = smoke.loc[idx]['End']
+        density = row['Density']
+        unique_str = str(ts_start) + str(ts_end) + density + str(idx)
+        rand_xy = get_deterministic_random_xy(unique_str)
         lat = centers.loc[idx].y
         lon = centers.loc[idx].x
         sat_num, valid_times = sza_sat_valid_times(lat, lon, ts_start, ts_end)
-        density = row['Density']
         if valid_times and sat_num:
             fn_heads, sat_fns = get_sat_files(valid_times, sat_num)
         else:
@@ -97,8 +102,12 @@ def create_smoke_rows(smoke, yr, dn):
     sat_fns_to_dl = check_goes_exists(sat_fns_to_dl)
 
     if sat_fns_to_dl:
-        p = Pool(8)
+        print('cpu count: {}'.format(multiprocessing.cpu_count()))
+        num_cpus = min([int(multiprocessing.cpu_count()/8), len(sat_fns_to_dl)])
+        p = multiprocessing.Pool(num_cpus)
         p.map(download_sat_files, sat_fns_to_dl)
+        p.close()
+        p.join()
 
     smoke_rows_final = []
     for smoke_row in smoke_rows:

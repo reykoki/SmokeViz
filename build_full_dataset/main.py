@@ -19,7 +19,7 @@ smoke_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/smoke/"
 global ray_par_dir
 ray_par_dir = "/tmp/"
 global full_data_dir
-full_data_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/full_dataset_other_sat/"
+full_data_dir = "/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/full_dataset/"
 
 def sat_files_exist(file_locs):
     for sat_fn in file_locs:
@@ -107,7 +107,9 @@ def iter_smoke(date):
                 ray_dir = "{}{}{}".format(ray_par_dir,yr,dn)
                 if not os.path.isdir(ray_dir):
                     os.mkdir(ray_dir)
-                ray.init(num_cpus=10, _temp_dir=ray_dir, include_dashboard=False, ignore_reinit_error=True, dashboard_host='127.0.0.1', object_store_memory=10**9)
+                num_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
+                print("num cpus: {num_cpus}")
+                ray.init(num_cpus=num_cpus, _temp_dir=ray_dir, include_dashboard=False, object_store_memory=int(0.25*250*1024**3)) # 64GB (1/4 of 250GB)
                 run_remote(checked_smoke_rows)
                 #run_no_ray(checked_smoke_rows)
                 ray.shutdown()
