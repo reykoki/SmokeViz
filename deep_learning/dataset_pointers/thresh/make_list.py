@@ -7,19 +7,21 @@ yrs = ['2018', '2019', '2020', '2021', '2024']
 val_yr = ['2023']
 test_yr = ['2022']
 
-threshes = ['001', '005', '01', '015', '05', '075', '1', '2'] 
-threshes = ['25', '3', '35', '4'] 
-#threshes = ['2'] 
-threshes = ['001', '005', '01', '015', '05', '075', '1', '2', '25', '3', '35', '4']
+threshes = ['001', '005', '01', '015', '05', '075', '1', '2']
+threshes = ['25', '3', '35', '4']
+
+threshes = ['005', '01', '05', '1', '15', '2', '25', '3', '35', '4']
+
 for thresh in threshes:
-    truth_dir = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz_datasets/PL_{}/truth/'.format(thresh)
+    PLDR_pkl = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/pl_derived_ds/PLDR_thresholds/PLDR_thresh_dicts/PLDR_{}.pkl'.format(thresh)
+    with open(PLDR_pkl, "rb") as f:
+        pl_dict = pickle.load(f)
 
     def get_train_fns(yrs):
         truth_fns = []
         data_fns = []
         for yr in yrs:
-            yr_truth_dir = truth_dir + yr + '/'
-            yr_truth_fns = glob.glob('{}*/*/*.tif'.format(yr_truth_dir))
+            yr_truth_fns = pl_dict[int(yr)]
             random.shuffle(yr_truth_fns)
             yr_data_fns = [s.replace('truth','data') for s in yr_truth_fns]
             truth_fns.extend(yr_truth_fns)
@@ -42,4 +44,3 @@ for thresh in threshes:
 
     with open('thresh_{}.pkl'.format(thresh), 'wb') as handle:
         pickle.dump(data_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
