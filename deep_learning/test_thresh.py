@@ -24,25 +24,29 @@ def get_metrics(high_metrics, med_metrics, low_metrics):
     intersection = high_metrics[0] + med_metrics[0] + low_metrics[0]
     union = high_metrics[1] + med_metrics[1] + low_metrics[1]
     overall_iou = intersection/union
+    print("---")
     print("high IoU: {}".format(high_metrics[0]/high_metrics[1]))
     print("med IoU: {}".format(med_metrics[0]/med_metrics[1]))
     print("low IoU: {}".format(low_metrics[0]/low_metrics[1]))
     print("Overall IoU: {}".format(overall_iou))
+    print("---")
 
     TP = high_metrics[2] + med_metrics[2] + low_metrics[2]
     TN = high_metrics[3] + med_metrics[3] + low_metrics[3]
     FP = high_metrics[4] + med_metrics[4] + low_metrics[4]
     FN = high_metrics[5] + med_metrics[5] + low_metrics[5]
     union = high_metrics[1] + med_metrics[1] + low_metrics[1]
-    print("Overall recall all density smoke: {}".format(TP/(TP+FN)))
     print("high recall: {}".format(high_metrics[2]/(high_metrics[2]+high_metrics[5])))
     print("med recall: {}".format(med_metrics[2]/(med_metrics[2]+med_metrics[5])))
     print("low recall: {}".format(low_metrics[2]/(low_metrics[2]+low_metrics[5])))
+    print("Overall recall: {}".format(TP/(TP+FN)))
+    print("---")
 
-    print("Overall precision all density smoke: {}".format(TP/(TP+FP)))
     print("high precision: {}".format(high_metrics[2]/(high_metrics[2]+high_metrics[4])))
     print("med precision: {}".format(med_metrics[2]/(med_metrics[2]+med_metrics[4])))
     print("low precision: {}".format(low_metrics[2]/(low_metrics[2]+low_metrics[4])))
+    print("Overall precision: {}".format(TP/(TP+FP)))
+    print("---")
 
     return overall_iou
 
@@ -115,36 +119,20 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
     )
     model = model.to(rank)
 
-    #if rank == 0:
-    #    print(summary(model, input_size=(16,3,256,256)))
-
     optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
     start_epoch = 0
     best_loss = 0
-    #ckpt_pth = None
 
     model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
-    #model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
-    if rank == 0:
-        print('using this checkpoint: ', ckpt_loc)
+#    if rank == 0:
+#        print('using this checkpoint: ', ckpt_loc)
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     checkpoint=torch.load(ckpt_loc, map_location=map_location, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     start_epoch = checkpoint['epoch']
     best_loss = checkpoint['loss']
-    #if use_ckpt:
-       # if use_recent:
-       #     ckpt_list = glob.glob('{}{}_{}_exp{}_*.pth'.format(ckpt_loc, arch, encoder, exp_num))
-       #     ckpt_list.sort() # sort by time
-       #     if ckpt_list:
-       #         most_recent = ckpt_list.pop()
-       #         ckpt_pth = most_recent
-       # else:
-       #     ckpt_pth = ckpt_loc
-        #if ckpt_pth:
-
     return model, optimizer, start_epoch, best_loss
 
 
@@ -169,78 +157,55 @@ def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=
     return dataloader
 
 def main(rank, world_size):
-    
+
     setup(rank, world_size)
+    threshes = ['005', '01', '05', '1', '15', '2', '25', '3', '35', '4']
+    try:
 
-    e_d_exp = {'encoder':[], 'decoder':[], 'exp_num': []}
-    e_d_fns = glob.glob('./configs_thresh/testing_01/*_*_*.json')
-    e_d_fns.sort()
-    for fn in e_d_fns:
-        fn = fn.split('/')[-1]
-        e = fn.split('_')[1]
-        d = fn.split('_')[0]
-        exp_num = fn.split('_')[-1].split('.json')[0]
-        e_d_exp['encoder'].append(e)
-        e_d_exp['decoder'].append(d)
-        e_d_exp['exp_num'].append(exp_num)
+        for model_thresh in threshes:
+            for data_thresh in threshes:
+                config_fn = "./configs_thresh/testing_1/pspnet_efficientnet-b2_{}.json".format(model_thresh)
 
-    for idx, decoder in enumerate(e_d_exp['decoder']):
-        encoder = e_d_exp['encoder'][idx]
-        exp_num = e_d_exp['exp_num'][idx]
-        job_name = f'{decoder}_{encoder}_{exp_num}'
-        
-        config_fn = e_d_fns[idx]
-        with open(config_fn) as fn:
-            cfg = json.load(fn)
-        arch = cfg['architecture']
-        encoder = cfg['encoder']
-        lr = cfg['lr']
+                with open(config_fn) as fn:
+                    cfg = json.load(fn)
+                arch = cfg['architecture']
+                encoder = cfg['encoder']
 
+                data_fn = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_{}.pkl'.format(data_thresh)
+                with open(data_fn, 'rb') as handle:
+                    data_dict = pickle.load(handle)
 
-        data_fn = cfg['datapointer']
-        data_fn = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/thresh_4.pkl'
-        with open(data_fn, 'rb') as handle:
-            data_dict = pickle.load(handle)
+                batch_size = int(cfg['batch_size'])
+                num_workers = int(cfg['num_workers'])
 
-        start_epoch = 0
-        lr = cfg['lr']
-        batch_size = int(cfg['batch_size'])
-        num_workers = int(cfg['num_workers'])
-        encoder_weights = cfg['encoder_weights']
+                test_loader = prepare_dataloader(rank, world_size, data_dict, 'test', batch_size=batch_size, is_train=False, num_workers=num_workers)
 
+                if rank==0:
+                    #print('data dict:              ', data_fn)
+                    #print('config fn:              ', config_fn)
+                    print("training threshold: .{}".format(model_thresh))
+                    print("testing threshold: .{}".format(data_thresh))
+                    #print('number of test samples: ', len(data_dict['test']['truth']))
 
-        test_loader = prepare_dataloader(rank, world_size, data_dict, 'test', batch_size=batch_size, is_train=False, num_workers=num_workers)
-
-        if rank==0:
-            print('data dict:              ', data_fn)
-            print('config fn:              ', config_fn)
-            print('number of test samples: ', len(data_dict['test']['truth']))
-            print("model trained on threshold: .{}".format(exp_num))
-
-        use_ckpt = True
-        use_recent = True
-        ckpt_save_loc = './models_Mie/'
-        if use_ckpt:
-            if use_recent:
-                ckpt_loc = ckpt_save_loc
-            else:
+                use_ckpt = True
+                use_recent = False
                 ckpt_loc = cfg['ckpt']
+                model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, model_thresh)
 
-        ckpt_loc = cfg['checkpoint']
-        model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
+                if rank==0:
+                    start = time.time()
 
-        if rank==0:
-            start = time.time()
+                test_loader.sampler.set_epoch(start_epoch)
 
-        test_loader.sampler.set_epoch(start_epoch)
+                high_metrics, med_metrics, low_metrics = val_model(test_loader, model, rank)
 
-        high_metrics, med_metrics, low_metrics = val_model(test_loader, model, rank)
+                if rank==0:
+                    iou = get_metrics(high_metrics, med_metrics, low_metrics)
+                    print("time to run testing:", np.round(time.time() - start, 2))
+                    print("")
 
-        if rank==0:
-            print("time to run testing:", np.round(time.time() - start, 2))
-            iou = get_metrics(high_metrics, med_metrics, low_metrics)
-
-    dist.destroy_process_group()
+    finally:
+        dist.destroy_process_group()
 
 
 if __name__ == '__main__':
@@ -249,4 +214,3 @@ if __name__ == '__main__':
     cudnn.benchmark = False
     world_size = 2 # num gpus
     mp.spawn(main, args=(world_size,), nprocs=world_size, join=True)
-
