@@ -1,0 +1,13 @@
+grep -E '^(training threshold|testing threshold|low IoU)' thresh_test.log > low_IoU.txt
+grep -E '^(training threshold|testing threshold|med IoU)' thresh_test.log > med_IoU.txt
+grep -E '^(training threshold|testing threshold|high IoU)' thresh_test.log > high_IoU.txt
+grep -E '^(training threshold|testing threshold|Overall IoU)' thresh_test.log > Overall_IoU.txt
+grep -E '^(training threshold|testing threshold|Overall recall)' thresh_test.log > Overall_recall.txt
+grep -E '^(training threshold|testing threshold|low recall)' thresh_test.log > low_recall.txt
+grep -E '^(training threshold|testing threshold|med recall)' thresh_test.log > med_recall.txt
+grep -E '^(training threshold|testing threshold|high recall)' thresh_test.log > high_recall.txt
+grep -E '^(training threshold|testing threshold|Overall precision)' thresh_test.log > Overall_precision.txt
+grep -E '^(training threshold|testing threshold|low precision)' thresh_test.log > low_precision.txt
+grep -E '^(training threshold|testing threshold|med precision)' thresh_test.log > med_precision.txt
+grep -E '^(training threshold|testing threshold|high precision)' thresh_test.log > high_precision.txt
+
