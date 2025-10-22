@@ -1,6 +1,6 @@
 slurmstepd: error: *** JOB 4640669 ON u23g03 CANCELLED AT 2025-10-22T00:31:30 ***
-training round: .1
-testing round: .1
+training round: 1
+testing round: 1
 ---
 high IoU: 0.32341843843460083
 med IoU: 0.4143388867378235
@@ -19,8 +19,8 @@ Overall precision: 0.7825807332992554
 ---
 time to run testing: 150.98
 
-training round: .1
-testing round: .2
+training round: 1
+testing round: 2
 ---
 high IoU: 0.3203904628753662
 med IoU: 0.4247526228427887
@@ -39,8 +39,8 @@ Overall precision: 0.8084053993225098
 ---
 time to run testing: 131.13
 
-training round: .1
-testing round: .3
+training round: 1
+testing round: 3
 ---
 high IoU: 0.32211247086524963
 med IoU: 0.4266056716442108
@@ -59,8 +59,8 @@ Overall precision: 0.8047846555709839
 ---
 time to run testing: 104.0
 
-training round: .1
-testing round: .4
+training round: 1
+testing round: 4
 ---
 high IoU: 0.3212749660015106
 med IoU: 0.42488354444503784
@@ -79,8 +79,8 @@ Overall precision: 0.8092508316040039
 ---
 time to run testing: 90.71
 
-training round: .2
-testing round: .1
+training round: 2
+testing round: 1
 ---
 high IoU: 0.31891682744026184
 med IoU: 0.3905304968357086
@@ -99,8 +99,8 @@ Overall precision: 0.7983450889587402
 ---
 time to run testing: 28.59
 
-training round: .2
-testing round: .2
+training round: 2
+testing round: 2
 ---
 high IoU: 0.3217129409313202
 med IoU: 0.402550607919693
@@ -119,8 +119,8 @@ Overall precision: 0.829146683216095
 ---
 time to run testing: 31.07
 
-training round: .2
-testing round: .3
+training round: 2
+testing round: 3
 ---
 high IoU: 0.34216544032096863
 med IoU: 0.42108407616615295
@@ -139,8 +139,8 @@ Overall precision: 0.830803632736206
 ---
 time to run testing: 31.26
 
-training round: .2
-testing round: .4
+training round: 2
+testing round: 4
 ---
 high IoU: 0.34146445989608765
 med IoU: 0.4051012396812439
@@ -159,8 +159,8 @@ Overall precision: 0.8325117230415344
 ---
 time to run testing: 30.57
 
-training round: .3
-testing round: .1
+training round: 3
+testing round: 1
 ---
 high IoU: 0.31308650970458984
 med IoU: 0.4238816797733307
@@ -179,8 +179,8 @@ Overall precision: 0.7633482217788696
 ---
 time to run testing: 26.84
 
-training round: .3
-testing round: .2
+training round: 3
+testing round: 2
 ---
 high IoU: 0.31807833909988403
 med IoU: 0.4482771158218384
@@ -199,8 +199,8 @@ Overall precision: 0.7985955476760864
 ---
 time to run testing: 29.52
 
-training round: .3
-testing round: .3
+training round: 3
+testing round: 3
 ---
 high IoU: 0.3704990744590759
 med IoU: 0.5081838369369507
@@ -219,8 +219,8 @@ Overall precision: 0.8154618144035339
 ---
 time to run testing: 29.64
 
-training round: .3
-testing round: .4
+training round: 3
+testing round: 4
 ---
 high IoU: 0.3650522828102112
 med IoU: 0.4962841272354126
@@ -239,8 +239,8 @@ Overall precision: 0.8169457316398621
 ---
 time to run testing: 29.24
 
-training round: .4
-testing round: .1
+training round: 4
+testing round: 1
 ---
 high IoU: 0.319681853055954
 med IoU: 0.4169194996356964
@@ -259,8 +259,8 @@ Overall precision: 0.7619892954826355
 ---
 time to run testing: 29.18
 
-training round: .4
-testing round: .2
+training round: 4
+testing round: 2
 ---
 high IoU: 0.3264000415802002
 med IoU: 0.4387078285217285
@@ -279,8 +279,8 @@ Overall precision: 0.7959008812904358
 ---
 time to run testing: 29.58
 
-training round: .4
-testing round: .3
+training round: 4
+testing round: 3
 ---
 high IoU: 0.3658333122730255
 med IoU: 0.4914278984069824
@@ -299,8 +299,8 @@ Overall precision: 0.8090258240699768
 ---
 time to run testing: 29.91
 
-training round: .4
-testing round: .4
+training round: 4
+testing round: 4
 ---
 high IoU: 0.39989179372787476
 med IoU: 0.5111652612686157
