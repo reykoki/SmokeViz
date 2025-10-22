@@ -1,0 +1,321 @@
+slurmstepd: error: *** JOB 4640669 ON u23g03 CANCELLED AT 2025-10-22T00:31:30 ***
+training round: .1
+testing round: .1
+---
+high IoU: 0.32341843843460083
+med IoU: 0.4143388867378235
+low IoU: 0.6772672533988953
+Overall IoU: 0.5875269770622253
+---
+high recall: 0.44995754957199097
+med recall: 0.5307726860046387
+low recall: 0.7797476053237915
+Overall recall: 0.7021356821060181
+---
+high precision: 0.5348915457725525
+med precision: 0.653835117816925
+low precision: 0.8374818563461304
+Overall precision: 0.7825807332992554
+---
+time to run testing: 150.98
+
+training round: .1
+testing round: .2
+---
+high IoU: 0.3203904628753662
+med IoU: 0.4247526228427887
+low IoU: 0.6690971255302429
+Overall IoU: 0.5902369618415833
+---
+high recall: 0.43673011660575867
+med recall: 0.5276204943656921
+low recall: 0.7525580525398254
+Overall recall: 0.6862327456474304
+---
+high precision: 0.5460160374641418
+med precision: 0.6853963136672974
+low precision: 0.8578168153762817
+Overall precision: 0.8084053993225098
+---
+time to run testing: 131.13
+
+training round: .1
+testing round: .3
+---
+high IoU: 0.32211247086524963
+med IoU: 0.4266056716442108
+low IoU: 0.6759551167488098
+Overall IoU: 0.5949469804763794
+---
+high recall: 0.4450056552886963
+med recall: 0.5317895412445068
+low recall: 0.7639082074165344
+Overall recall: 0.6952876448631287
+---
+high precision: 0.5384033918380737
+med precision: 0.6832272410392761
+low precision: 0.8544596433639526
+Overall precision: 0.8047846555709839
+---
+time to run testing: 104.0
+
+training round: .1
+testing round: .4
+---
+high IoU: 0.3212749660015106
+med IoU: 0.42488354444503784
+low IoU: 0.6641958355903625
+Overall IoU: 0.5870538353919983
+---
+high recall: 0.43864190578460693
+med recall: 0.5243358612060547
+low recall: 0.7467825412750244
+Overall recall: 0.6813333034515381
+---
+high precision: 0.5456030368804932
+med precision: 0.6913661956787109
+low precision: 0.8572638034820557
+Overall precision: 0.8092508316040039
+---
+time to run testing: 90.71
+
+training round: .2
+testing round: .1
+---
+high IoU: 0.31891682744026184
+med IoU: 0.3905304968357086
+low IoU: 0.6769002676010132
+Overall IoU: 0.5858537554740906
+---
+high recall: 0.4402560591697693
+med recall: 0.45668166875839233
+low recall: 0.7857854962348938
+Overall recall: 0.6876068711280823
+---
+high precision: 0.5364207029342651
+med precision: 0.729442298412323
+low precision: 0.8300749659538269
+Overall precision: 0.7983450889587402
+---
+time to run testing: 28.59
+
+training round: .2
+testing round: .2
+---
+high IoU: 0.3217129409313202
+med IoU: 0.402550607919693
+low IoU: 0.6865246295928955
+Overall IoU: 0.6018021702766418
+---
+high recall: 0.4326271712779999
+med recall: 0.45680418610572815
+low recall: 0.7766156792640686
+Overall recall: 0.6869940757751465
+---
+high precision: 0.5565133094787598
+med precision: 0.772178053855896
+low precision: 0.8554511070251465
+Overall precision: 0.829146683216095
+---
+time to run testing: 31.07
+
+training round: .2
+testing round: .3
+---
+high IoU: 0.34216544032096863
+med IoU: 0.42108407616615295
+low IoU: 0.6985111832618713
+Overall IoU: 0.6168169975280762
+---
+high recall: 0.4524669349193573
+med recall: 0.46888116002082825
+low recall: 0.7979016900062561
+Overall recall: 0.7054312825202942
+---
+high precision: 0.5839563608169556
+med precision: 0.8050971031188965
+low precision: 0.8486593961715698
+Overall precision: 0.830803632736206
+---
+time to run testing: 31.26
+
+training round: .2
+testing round: .4
+---
+high IoU: 0.34146445989608765
+med IoU: 0.4051012396812439
+low IoU: 0.6880467534065247
+Overall IoU: 0.6060217618942261
+---
+high recall: 0.43803051114082336
+med recall: 0.4532463550567627
+low recall: 0.7818912267684937
+Overall recall: 0.6901684999465942
+---
+high precision: 0.6076748967170715
+med precision: 0.7922593951225281
+low precision: 0.8514701724052429
+Overall precision: 0.8325117230415344
+---
+time to run testing: 30.57
+
+training round: .3
+testing round: .1
+---
+high IoU: 0.31308650970458984
+med IoU: 0.4238816797733307
+low IoU: 0.6951218843460083
+Overall IoU: 0.6027123332023621
+---
+high recall: 0.4389652609825134
+med recall: 0.5534475445747375
+low recall: 0.8280444145202637
+Overall recall: 0.7412083745002747
+---
+high precision: 0.5219423174858093
+med precision: 0.6442083120346069
+low precision: 0.8123925924301147
+Overall precision: 0.7633482217788696
+---
+time to run testing: 26.84
+
+training round: .3
+testing round: .2
+---
+high IoU: 0.31807833909988403
+med IoU: 0.4482771158218384
+low IoU: 0.7065145969390869
+Overall IoU: 0.6230308413505554
+---
+high recall: 0.44381073117256165
+med recall: 0.5597041249275208
+low recall: 0.8150269985198975
+Overall recall: 0.7391754984855652
+---
+high precision: 0.5289138555526733
+med precision: 0.6924706697463989
+low precision: 0.8414352536201477
+Overall precision: 0.7985955476760864
+---
+time to run testing: 29.52
+
+training round: .3
+testing round: .3
+---
+high IoU: 0.3704990744590759
+med IoU: 0.5081838369369507
+low IoU: 0.7381719350814819
+Overall IoU: 0.6649759411811829
+---
+high recall: 0.4903988242149353
+med recall: 0.607326328754425
+low recall: 0.8578890562057495
+Overall recall: 0.7827696800231934
+---
+high precision: 0.6024439334869385
+med precision: 0.7568700909614563
+low precision: 0.8410102725028992
+Overall precision: 0.8154618144035339
+---
+time to run testing: 29.64
+
+training round: .3
+testing round: .4
+---
+high IoU: 0.3650522828102112
+med IoU: 0.4962841272354126
+low IoU: 0.7341645359992981
+Overall IoU: 0.6596152186393738
+---
+high recall: 0.4668431878089905
+med recall: 0.5961740612983704
+low recall: 0.8501459956169128
+Overall recall: 0.7740154266357422
+---
+high precision: 0.6260615587234497
+med precision: 0.7476006746292114
+low precision: 0.8432955145835876
+Overall precision: 0.8169457316398621
+---
+time to run testing: 29.24
+
+training round: .4
+testing round: .1
+---
+high IoU: 0.319681853055954
+med IoU: 0.4169194996356964
+low IoU: 0.6839998364448547
+Overall IoU: 0.5901259779930115
+---
+high recall: 0.5324003100395203
+med recall: 0.5400345921516418
+low recall: 0.8011038899421692
+Overall recall: 0.7234848141670227
+---
+high precision: 0.44447922706604004
+med precision: 0.6464912295341492
+low precision: 0.8239192366600037
+Overall precision: 0.7619892954826355
+---
+time to run testing: 29.18
+
+training round: .4
+testing round: .2
+---
+high IoU: 0.3264000415802002
+med IoU: 0.4387078285217285
+low IoU: 0.6902760863304138
+Overall IoU: 0.6068624258041382
+---
+high recall: 0.5261052846908569
+med recall: 0.5454437136650085
+low recall: 0.7862391471862793
+Overall recall: 0.7187098264694214
+---
+high precision: 0.46232840418815613
+med precision: 0.6915381550788879
+low precision: 0.8497490882873535
+Overall precision: 0.7959008812904358
+---
+time to run testing: 29.58
+
+training round: .4
+testing round: .3
+---
+high IoU: 0.3658333122730255
+med IoU: 0.4914278984069824
+low IoU: 0.7225371599197388
+Overall IoU: 0.6461651921272278
+---
+high recall: 0.5738278031349182
+med recall: 0.5906129479408264
+low recall: 0.8299459218978882
+Overall recall: 0.7624639868736267
+---
+high precision: 0.5023099780082703
+med precision: 0.7453063130378723
+low precision: 0.8480944633483887
+Overall precision: 0.8090258240699768
+---
+time to run testing: 29.91
+
+training round: .4
+testing round: .4
+---
+high IoU: 0.39989179372787476
+med IoU: 0.5111652612686157
+low IoU: 0.7312166094779968
+Overall IoU: 0.6608907580375671
+---
+high recall: 0.5812675356864929
+med recall: 0.6030879020690918
+low recall: 0.8339486122131348
+Overall recall: 0.7690198421478271
+---
+high precision: 0.5617036819458008
+med precision: 0.7703083753585815
+low precision: 0.8558205366134644
+Overall precision: 0.8245701789855957
+---
+time to run testing: 29.66
+
