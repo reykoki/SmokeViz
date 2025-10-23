@@ -62,7 +62,7 @@ def match_samples(mie_files, pldr_files):
                      None)
 
         if match:
-            dt_minutes = abs((match['time'] - m['time']).total_seconds()) / 60
+            dt_minutes = ((m['time'] - match['time']).total_seconds()) / 60
             matched.append(dt_minutes)
         else:
             unmatched += 1
@@ -77,7 +77,7 @@ def match_samples(mie_files, pldr_files):
 #mie_file_list = mie_file_list[0:3]
 #pldr_file_list = pldr_file_list[0:3]
 
-#time_diff = match_samples(mie_file_list, pldr_file_list)
-#np.save('time_diff.npy', time_diff)
-time_diff = np.load("time_diff.npy")
+time_diff = match_samples(mie_file_list, pldr_file_list)
+np.save('time_diff.npy', time_diff)
+#time_diff = np.load("time_diff.npy")
 
