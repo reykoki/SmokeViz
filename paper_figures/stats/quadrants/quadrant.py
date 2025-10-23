@@ -13,12 +13,12 @@ import pickle
 import geopandas
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-fp  = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/round3/thresh_1.pkl'
+#fp  = '/scratch3/BMC/gpu-ghpcs/Rey.Koki/SmokeViz/deep_learning/dataset_pointers/thresh/round3/thresh_1.pkl'
 
-with open(fp, 'rb') as handle:
-    data_dict = pickle.load(handle)
+#with open(fp, 'rb') as handle:
+#    data_dict = pickle.load(handle)
 
-file_list = data_dict['train']['truth']+ data_dict['val']['truth'] + data_dict['test']['truth']
+#file_list = data_dict['train']['truth']+ data_dict['val']['truth'] + data_dict['test']['truth']
 
 
 all_yr = ['2018','2019','2020','2021','2022','2023','2024']
@@ -28,16 +28,19 @@ quad_recall = {"NW": 0.7946525812149048, "NE": 0.848886251449585, "SW": 0.825346
 quad_precision = {"NW": 0.8198626637458801, "NE": 0.843897819519043, "SW": 0.7463364005088806, "SE": 0.8171705007553101}
 
 
-records = []
-for path in file_list:
-    m = re.search(r'_([-]?\d+\.\d+)_([-]?\d+\.\d+)_', path)
-    if m:
-        lat = float(m.group(1))
-        lon = float(m.group(2))
-        records.append({'Latitude': lat, 'Longitude': lon})
+#records = []
+#for path in file_list:
+#    m = re.search(r'_([-]?\d+\.\d+)_([-]?\d+\.\d+)_', path)
+#    if m:
+#        lat = float(m.group(1))
+#        lon = float(m.group(2))
+#        records.append({'Latitude': lat, 'Longitude': lon})
 
-lat_lon_df = pd.DataFrame(records)
+#lat_lon_df = pd.DataFrame(records)
+#lat_lon_df.to_pickle("lat_lon_df.pkl")
+lat_lon_df = pd.read_pickle('lat_lon_df.pkl')
 
+x = input('stop')
 states = geopandas.read_file('./shape_files/states.shp')
 countries = geopandas.read_file('./shape_files/NA_countries.shp')
 
@@ -142,55 +145,24 @@ for region, (iou, lon, lat) in region_text.items():
 ax.set_xlim(-185, -47)
 ax.set_ylim(10, 85)
 
-# 3) Single horizontal colorbar BELOW the map
+
 cmap = plt.colormaps.get_cmap(color)
 norm = Normalize(vmin=vmin, vmax=vmax)
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-sm.set_array([])  # needed for older Matplotlib
-cbar = fig.colorbar(sm, ax=ax, orientation='horizontal', fraction=0.06, pad=0.08)
+sm.set_array([])
+
+# Get the [left, bottom, width, height] of the map axes in figure coordinates
+pos = ax.get_position()
+cbar_width = pos.width * 0.8     # 80% of the map width
+cbar_height = 0.025              # thin horizontal bar
+cbar_left = pos.x0 + (pos.width - cbar_width) / 2  # center it horizontally
+cbar_bottom = pos.y0 - 0.1      # move below the map (tweak as needed)
+
+# Add a new axes for the colorbar
+cbar_ax = fig.add_axes([cbar_left, cbar_bottom, cbar_width, cbar_height])
+cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal')
 cbar.set_label('percent of total samples (%)')
 
-plt.tight_layout()
 plt.savefig('../stat_figures/sample_percent_per_state_MX_CA_w_quad_iou.png', bbox_inches='tight', dpi=300)
-
-
-
-
-
-
-def temp():
-    fig, ax = plt.subplots(1, 1, figsize=(10,6))
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=-.1)
-
-    states.plot(figsize=(5, 4), column='smoke_count', cmap=color, edgecolor='black', linewidth=0.5, ax=ax, legend=True,
-                cax=cax, legend_kwds={'label': "sample count", 'orientation': "vertical"})
-    countries.plot(column='smoke_count', cmap=color, edgecolor='black', linewidth=.5, ax=ax, legend=True,
-                   cax=cax, legend_kwds={'label': "sample count",'orientation': "vertical"})
-    ax.get_yaxis().set_visible(False)
-    ax.get_xaxis().set_visible(False)
-
-    ax.plot([-183, -45], [40, 40], 'k--', lw=1, alpha=0.8)
-    ax.plot([-105, -105], [-90, 90], 'k--', lw=1,  alpha=0.8)
-
-    region_text = {
-        'NW': (quad_iou['NW'], -183, 75),
-        'SW': (quad_iou['SW'], -183, 16),
-        'NE': (quad_iou['NE'], -67, 75),
-        'SE': (quad_iou['SE'], -67, 16)
-    }
-
-    for region, (iou, lon, lat) in region_text.items():
-        ax.text(lon, lat, f'{region} IoU:\n {iou:.4f}', fontsize=10, ha='left', color='black')
-    ax.set_xlim(-185, -47)  # Longitude limits
-    ax.set_ylim(10, 85)     # Latitude limits
-
-    plt.savefig('../stat_figures/sample_count_per_state_MX_CA_w_quad_iou.png', bbox_inches='tight', dpi=300)
-    plt.show()
-
-    #plt.show()
-    #ax.set_title('Count of Smoke Annotations')                                                                                            
-
-
 
 
