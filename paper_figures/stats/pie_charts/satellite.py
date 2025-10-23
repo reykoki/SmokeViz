@@ -13,12 +13,12 @@ colors = ['lightskyblue', 'lightsalmon']
 labels_full = ['GOES-WEST', 'GOES-EAST']
 
 # Figure with 2 pies
-fig, axes = plt.subplots(1, 2, figsize=(12, 6), dpi=300)
+fig, axes = plt.subplots(1, 2, figsize=(10, 5), dpi=300)
 
-axes[0].pie(test_counts, labels=labels, colors=colors, autopct=my_fmt_1)
+axes[0].pie(test_counts, labels=labels, colors=colors, autopct=my_fmt_1, startangle=90)
 axes[0].set_title('Test Set Distribution')
 
-axes[1].pie(full_counts, labels=labels_full, colors=colors, autopct=my_fmt_2)
+axes[1].pie(full_counts, labels=labels_full, colors=colors, autopct=my_fmt_2, startangle=90)
 axes[1].set_title('Full Dataset Distribution')
 plt.savefig('../stat_figures/pie_satellite_performance.png', bbox_inches='tight', dpi=300)
 #plt.tight_layout()
