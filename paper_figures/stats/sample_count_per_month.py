@@ -1,4 +1,5 @@
 import os
+import datetime as dt
 from collections import defaultdict
 import numpy as np
 import re
@@ -113,4 +114,72 @@ def get_month_count_w_month_iou_per_year():
     plt.savefig('stat_figures/count_per_month_per_year_w_iou.png', bbox_inches='tight', dpi=300)
 
 #get_density_count_per_year()
-get_month_count_w_month_iou_per_year()
+#get_month_count_w_month_iou_per_year()
+
+
+
+
+def get_density_count_per_month(file_list):
+    all_months = [calendar.month_abbr[m] for m in range(1, 13)]
+    print(all_months)
+    num_mo = len(all_months)
+    sample_counts = pd.DataFrame({
+        'Light': np.zeros(num_mo),
+        'Medium': np.zeros(num_mo),
+        'Heavy': np.zeros(num_mo)
+    }, index=all_months)
+
+    for path in file_list:
+        parts = path.split('/')
+        year = int(parts[-4])
+        doy = int(parts[-2])      # adjust if DOY folder is in a different position
+        density = parts[-3]
+
+        # convert DOY → month abbreviation
+        try:
+            month_num = dt.datetime(year, 1, 1) + dt.timedelta(days=doy - 1)
+            month = calendar.month_abbr[month_num.month]
+        except Exception:
+            continue  # skip if something is malformed
+
+        if month in sample_counts.index and density in sample_counts.columns:
+            sample_counts.loc[month, density] += 1
+
+    print(sample_counts)
+
+    # --- Plot ---
+    ax = sample_counts.plot(
+        figsize=(7, 4),
+        kind='bar',
+        stacked=True,
+        color=['orange', 'indianred', 'darkred'],
+        alpha=0.85
+    )
+
+    plt.xlabel('Month', fontsize=12)
+    plt.ylabel('Sample Count', fontsize=12)
+    plt.title('Sample Counts per Month by Density', fontsize=13)
+
+    totals = sample_counts.sum(axis=1)
+    for i, (month, total) in enumerate(zip(all_months, totals)):
+        y_offset = 0
+        for category in sample_counts.columns:
+            value = sample_counts.at[month, category]
+            if total > 0:
+                pct = (value / total) * 100
+                ax.text(
+                    i,
+                    y_offset + value / 2,
+                    f"{pct:.1f}%",
+                    ha="center",
+                    va="center",
+                    fontsize=7.5,
+                    color="black"
+                )
+            y_offset += value
+
+    ax.set_xticklabels(all_months, rotation=45)
+    plt.tight_layout()
+    plt.savefig('stat_figures/density_count_per_month_percentages.png', bbox_inches='tight', dpi=300)
+    plt.show()
+get_density_count_per_month(file_list)
