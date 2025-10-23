@@ -40,7 +40,6 @@ quad_precision = {"NW": 0.8198626637458801, "NE": 0.843897819519043, "SW": 0.746
 #lat_lon_df.to_pickle("lat_lon_df.pkl")
 lat_lon_df = pd.read_pickle('lat_lon_df.pkl')
 
-x = input('stop')
 states = geopandas.read_file('./shape_files/states.shp')
 countries = geopandas.read_file('./shape_files/NA_countries.shp')
 
@@ -66,9 +65,9 @@ for idx, row in states.iterrows():
 for idx, row in countries.iterrows():
     countries_dict[row['shapeISO']] = len(gdf.geometry.clip(row['geometry']))
 
-print(countries_dict)
+#print(countries_dict)
 
-print(state_dict)
+#print(state_dict)
 
 def assign_state_smoke_count(states):
     count = states_dict[states['shapeISO']]
@@ -84,7 +83,7 @@ def assign_country_smoke_count(countries):
     countries['smoke_count'] = count
     return countries
 countries = countries.apply(assign_country_smoke_count, axis=1)
-print(states)
+#print(states)
 
 total = float(
     np.nansum(states['smoke_count'].to_numpy())
@@ -96,43 +95,21 @@ states['smoke_percent'] = 100.0 * states['smoke_count'] / total
 countries['smoke_percent'] = 100.0 * countries['smoke_count'] / total
 
 
+color = 'YlGnBu'
 vmin = 0.0
 vmax = max(states['smoke_percent'].max(), countries['smoke_percent'].max())
 
-color = 'Reds'
-
-
-# 2) Plot
 fig, ax = plt.subplots(1, 1, figsize=(10, 6))
 
-states.plot(
-    column='smoke_percent',
-    cmap=color,
-    edgecolor='black',
-    linewidth=0.5,
-    ax=ax,
-    legend=False,
-    vmin=vmin, vmax=vmax
-)
-countries.plot(
-    column='smoke_percent',
-    cmap=color,
-    edgecolor='black',
-    linewidth=0.5,
-    ax=ax,
-    legend=False,
-    vmin=vmin, vmax=vmax
-)
+states.plot(column='smoke_percent', cmap=color, edgecolor='black', linewidth=0.5, ax=ax, legend=False, vmin=vmin, vmax=vmax)
+countries.plot(column='smoke_percent', cmap=color, edgecolor='black', linewidth=0.5, ax=ax, legend=False, vmin=vmin, vmax=vmax)
 
-# Axes cleanup
 ax.get_yaxis().set_visible(False)
 ax.get_xaxis().set_visible(False)
 
-# Quadrant lines
 ax.plot([-183, -45], [40, 40], 'k--', lw=1, alpha=0.8)
 ax.plot([-105, -105], [-90, 90], 'k--', lw=1, alpha=0.8)
 
-# Quadrant annotations
 region_text = {
     'NW': (quad_iou['NW'], -183, 75),
     'SW': (quad_iou['SW'], -183, 16),
@@ -145,24 +122,24 @@ for region, (iou, lon, lat) in region_text.items():
 ax.set_xlim(-185, -47)
 ax.set_ylim(10, 85)
 
-
 cmap = plt.colormaps.get_cmap(color)
 norm = Normalize(vmin=vmin, vmax=vmax)
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
 sm.set_array([])
 
-# Get the [left, bottom, width, height] of the map axes in figure coordinates
 pos = ax.get_position()
 cbar_width = pos.width * 0.8     # 80% of the map width
 cbar_height = 0.025              # thin horizontal bar
 cbar_left = pos.x0 + (pos.width - cbar_width) / 2  # center it horizontally
-cbar_bottom = pos.y0 - 0.1      # move below the map (tweak as needed)
+cbar_bottom = pos.y0 - 0.01      # move below the map (tweak as needed)
 
-# Add a new axes for the colorbar
 cbar_ax = fig.add_axes([cbar_left, cbar_bottom, cbar_width, cbar_height])
 cbar = fig.colorbar(sm, cax=cbar_ax, orientation='horizontal')
 cbar.set_label('percent of total samples (%)')
 
-plt.savefig('../stat_figures/sample_percent_per_state_MX_CA_w_quad_iou.png', bbox_inches='tight', dpi=300)
+#oplt.tight_layout(rect=[0, 0.05, 1, 1])  # keep 5% margin at bottom
+plt.subplots_adjust(bottom=0.15)  # increase bottom margin fraction
+#plt.show()
 
+plt.savefig('../stat_figures/sample_percent_per_state_MX_CA_w_quad_iou.png', bbox_inches='tight', dpi=300)
 
