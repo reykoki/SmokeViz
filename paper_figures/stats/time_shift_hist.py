@@ -74,9 +74,10 @@ def match_samples(mie_files, pldr_files):
     return matched
 
 # Example data
-mie_file_list = mie_file_list[0:3]
-pldr_file_list = pldr_file_list[0:3]
+#mie_file_list = mie_file_list[0:3]
+#pldr_file_list = pldr_file_list[0:3]
 
-time_diff = match_samples(mie_file_list, pldr_file_list)
-np.save('time_diff.npy', time_diff)
+#time_diff = match_samples(mie_file_list, pldr_file_list)
+#np.save('time_diff.npy', time_diff)
+time_diff = np.load("time_diff.npy")
 
