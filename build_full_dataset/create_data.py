@@ -24,7 +24,7 @@ def pick_temporal_smoke(smoke_shape, t_0, t_f):
     rel_smoke = smoke_shape.loc[use_idx]
     return rel_smoke
 
-def save_data(RGB, fn_data, full_data_dir):
+def save_data(RGB, fn_data, full_data_dir, yr, dn):
     total = np.sum(np.sum(RGB))
     if total > 100 and total < 1.5e5:
         skimage.io.imsave(fn_data, RGB)
@@ -32,7 +32,7 @@ def save_data(RGB, fn_data, full_data_dir):
     else:
         print("TOTAL SUM: ", total)
         fn = fn_data.split('/')[-1]
-        bad_fn = "{}bad_img/{}".format(full_data_dir, fn)
+        bad_fn = f"{full_data_dir}bad_img/{yr}/{dn}/{fn}"
         with open(bad_fn, 'w') as fp:
             pass
         return False
@@ -56,7 +56,7 @@ def plot_truth(x, y, lcc_proj, smoke, png_fn, img_shape):
     os.remove(png_fn)
     return truth
 
-def get_truth(x, y, lcc_proj, smoke, png_fn, tif_fn, img_shape, full_data_dir):
+def get_truth(x, y, lcc_proj, smoke, png_fn, tif_fn, img_shape, full_data_dir, yr, dn):
 
     low_smoke = smoke.loc[smoke['Density'] == 'Light']
     med_smoke = smoke.loc[smoke['Density'] == 'Medium']
@@ -77,7 +77,7 @@ def get_truth(x, y, lcc_proj, smoke, png_fn, tif_fn, img_shape, full_data_dir):
         return True
     else:
         fn = tif_fn.split('/')[-1]
-        bad_fn = "{}bad_img/{}".format(full_data_dir, fn)
+        bad_fn = f"{full_data_dir}bad_img/{yr}/{dn}/{fn}"
         with open(bad_fn, 'w') as fp:
             pass
         return False
@@ -153,12 +153,12 @@ def create_data_truth(sat_fns, smoke, idx0, yr, dn, density, rand_xy, fn_head, f
 
     img_shape = scn[composite].shape
 
-    png_fn_truth = full_data_dir + 'temp_png/truth_' + fn_head + '_{}'.format(idx0) + '.png'
-    tif_fn_truth = full_data_dir + 'truth/{}/{}/{}/{}.tif'.format(yr, density, dn, fn_head)
-    tif_fn_data = full_data_dir + 'data/{}/{}/{}/{}.tif'.format(yr, density, dn, fn_head)
-    data_saved = save_data(RGB, tif_fn_data, full_data_dir)
+    png_fn_truth = f"{full_data_dir}temp_png/truth_{fn_head}_{idx0}.png"
+    tif_fn_truth = f"{full_data_dir}truth/{yr}/{density}/{dn}/{fn_head}.tif"
+    tif_fn_truth = f"{full_data_dir}data/{yr}/{density}/{dn}/{fn_head}.tif"
+    data_saved = save_data(RGB, tif_fn_data, full_data_dir, yr, dn)
     if data_saved:
-        truth_saved  = get_truth(x, y, lcc_proj, rel_smoke, png_fn_truth, tif_fn_truth, img_shape, full_data_dir)
+        truth_saved  = get_truth(x, y, lcc_proj, rel_smoke, png_fn_truth, tif_fn_truth, img_shape, full_data_dir, yr, dn)
     del scn
     del RGB
     return
