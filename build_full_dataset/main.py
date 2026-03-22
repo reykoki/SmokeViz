@@ -32,6 +32,7 @@ def sample_doesnt_exist(yr, dn, fn_head, idx, density):
     sat_num = fn_head_parts[0]
     start_scan = fn_head_parts[1]
     file_list = glob.glob('{}truth/{}/{}/{}/{}_{}_*_{}.tif'.format(full_data_dir, yr, density, dn, sat_num, start_scan, idx))
+    file_list = glob.glob(f'{full_data_dir}truth/{yr}/{density}/{dn}/{sat_num}_{start_scan}_*_{idx}.tif'
     if len(file_list) > 0:
         print("FILES THAT ALREADY EXIST:", file_list, flush=True)
         if len(file_list) > 1:
@@ -41,7 +42,7 @@ def sample_doesnt_exist(yr, dn, fn_head, idx, density):
                 os.remove(fn)
                 os.remove(fn.replace('truth','data'))
         return False
-    bad_file_list = glob.glob('{}bad_img/{}_{}_*_{}.tif'.format(full_data_dir, sat_num, start_scan, idx))
+    bad_file_list = glob.glob(f'{full_data_dir}bad_img/{yr}/{dn}/{sat_num}_{start_scn}_*_{idx}.tif')
 
     if len(bad_file_list) > 0:
         print("BAD FILES:", bad_file_list, flush=True)
@@ -108,7 +109,7 @@ def iter_smoke(date):
                 if not os.path.isdir(ray_dir):
                     os.mkdir(ray_dir)
                 num_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
-                print("num cpus: {num_cpus}")
+                print(f"num cpus: {num_cpus}")
                 ray.init(num_cpus=num_cpus, _temp_dir=ray_dir, include_dashboard=False, object_store_memory=int(0.25*250*1024**3)) # 64GB (1/4 of 250GB)
                 run_remote(checked_smoke_rows)
                 #run_no_ray(checked_smoke_rows)
