@@ -31,8 +31,7 @@ def sample_doesnt_exist(yr, dn, fn_head, idx, density):
     fn_head_parts = fn_head.split('_')
     sat_num = fn_head_parts[0]
     start_scan = fn_head_parts[1]
-    file_list = glob.glob('{}truth/{}/{}/{}/{}_{}_*_{}.tif'.format(full_data_dir, yr, density, dn, sat_num, start_scan, idx))
-    file_list = glob.glob(f'{full_data_dir}truth/{yr}/{density}/{dn}/{sat_num}_{start_scan}_*_{idx}.tif'
+    file_list = glob.glob(f'{full_data_dir}truth/{yr}/{density}/{dn}/{sat_num}_{start_scan}_*_{idx}.tif')
     if len(file_list) > 0:
         print("FILES THAT ALREADY EXIST:", file_list, flush=True)
         if len(file_list) > 1:
@@ -42,7 +41,7 @@ def sample_doesnt_exist(yr, dn, fn_head, idx, density):
                 os.remove(fn)
                 os.remove(fn.replace('truth','data'))
         return False
-    bad_file_list = glob.glob(f'{full_data_dir}bad_img/{yr}/{dn}/{sat_num}_{start_scn}_*_{idx}.tif')
+    bad_file_list = glob.glob(f'{full_data_dir}bad_img/{yr}/{dn}/{sat_num}_{start_scan}_*_{idx}.tif')
 
     if len(bad_file_list) > 0:
         print("BAD FILES:", bad_file_list, flush=True)
@@ -63,7 +62,7 @@ def check_smoke_rows(smoke_rows):
             checked_smoke_rows.append(smoke_row)
     return checked_smoke_rows
 
-@ray.remote(max_calls=1)
+@ray.remote(max_calls=50)
 def iter_rows(smoke_row):
     smoke = smoke_row['smoke']
     idx = smoke_row['idx']
@@ -108,9 +107,19 @@ def iter_smoke(date):
                 ray_dir = "{}{}{}".format(ray_par_dir,yr,dn)
                 if not os.path.isdir(ray_dir):
                     os.mkdir(ray_dir)
-                num_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
-                print(f"num cpus: {num_cpus}")
-                ray.init(num_cpus=num_cpus, _temp_dir=ray_dir, include_dashboard=False, object_store_memory=int(0.25*250*1024**3)) # 64GB (1/4 of 250GB)
+                max_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", "1"))
+                num_cpus = min(len(checked_smoke_rows), max_cpus)
+                mem_mb   = int(os.environ.get("SLURM_MEM_PER_NODE", "64000"))
+                ray.init(
+                    num_cpus=num_cpus,
+                    _temp_dir=ray_dir,
+                    include_dashboard=False,
+                    ignore_reinit_error=True,
+                    dashboard_host='127.0.0.1',
+                    object_store_memory=int(0.25 * mem_mb * 1024**2),
+                    runtime_env={"worker_process_setup_hook": None},
+                )
+                print(f"num_cpus: {num_cpus} | object_store_memory: {int(0.25 * mem_mb / 1000):.1f}GB", flush=True)
                 run_remote(checked_smoke_rows)
                 #run_no_ray(checked_smoke_rows)
                 ray.shutdown()
