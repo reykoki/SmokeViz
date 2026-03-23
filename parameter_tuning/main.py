@@ -71,7 +71,17 @@ def earth_mover_distance(y_pred, y_true):
     emd = torch.mean(torch.square(torch.cumsum(y_true, dim=1) - torch.cumsum(y_pred, dim=1)))  #abs/square for L1/L2
     return emd
 
-def val_model(dataloader, model, criterion, rank):
+def combined_loss(preds, labels, bce_criterion, dice_criterion,rank):
+    high_bce  = bce_criterion(preds[:,0,:,:], labels[:,0,:,:])
+    med_bce   = bce_criterion(preds[:,1,:,:], labels[:,1,:,:])
+    low_bce   = bce_criterion(preds[:,2,:,:], labels[:,2,:,:])
+    high_dice = dice_criterion(preds[:,0,:,:].unsqueeze(1), labels[:,0,:,:].unsqueeze(1))
+    med_dice  = dice_criterion(preds[:,1,:,:].unsqueeze(1), labels[:,1,:,:].unsqueeze(1))
+    low_dice  = dice_criterion(preds[:,2,:,:].unsqueeze(1), labels[:,2,:,:].unsqueeze(1))
+    loss = 3*(high_bce + high_dice) + 2*(med_bce + med_dice) + (low_bce + low_dice)
+    return loss
+
+def val_model(dataloader, model, bce_criterion, dice_criterion, rank):
     model.eval()
     total_loss = 0.0
     num_batches = 0
@@ -84,10 +94,7 @@ def val_model(dataloader, model, criterion, rank):
         preds = model(batch_data)
 
         #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
-        high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
-        med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
-        low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
-        loss = 3*high_loss + 2*med_loss + low_loss
+        loss = combined_loss(preds, labels, bce_criterion, dice_criterion, rank)
 
         total_loss += loss.item()
         num_batches += 1
@@ -123,7 +130,15 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
     if rank == 0:
         print(summary(model, input_size=(8,3,256,256)))
 
-    optimizer = torch.optim.Adam(list(model.parameters()), lr=lr)
+    optimizer = torch.optim.AdamW([
+        {"params": model.encoder.parameters(), "lr": lr * 0.1, "weight_decay": 1e-5},
+        {"params": model.decoder.parameters(), "lr": lr,       "weight_decay": 1e-5},
+    ], lr=lr)
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, T_0=10, T_mult=2
+    )
+
     start_epoch = 0
     best_loss = 0
     ckpt_pth = None
@@ -147,13 +162,14 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
             checkpoint=torch.load(ckpt_pth, map_location=map_location, weights_only=False)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch']
             best_loss = checkpoint['loss']
 
-    return model, optimizer, start_epoch, best_loss
+    return model, optimizer, scheduler, start_epoch, best_loss
 
 
-def train_model(train_dataloader, model, criterion, optimizer, rank):
+def train_model(train_dataloader, model, bce_criterion, dice_criterion, optimizer, rank):
     total_loss = 0.0
     model.train()
     start = time.time()
@@ -167,16 +183,22 @@ def train_model(train_dataloader, model, criterion, optimizer, rank):
         preds = model(batch_data)
 
         #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
-        high_loss = criterion(preds[:,0,:,:], batch_labels[:,0,:,:]).to(rank)
-        med_loss = criterion(preds[:,1,:,:], batch_labels[:,1,:,:]).to(rank)
-        low_loss = criterion(preds[:,2,:,:], batch_labels[:,2,:,:]).to(rank)
-        loss = 3*high_loss + 2*med_loss + low_loss
+        loss = combined_loss(preds, labels, bce_criterion, dice_criterion, rank)
+
+        total_loss += loss.item()
+        num_batches += 1
+        high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
+        med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
+        low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
+
+    avg_
 
         total_loss += loss.item()
         num_batches += 1
 
         # compute gradient and do step
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
     avg_loss = torch.tensor([total_loss / num_batches], device=rank)
@@ -206,11 +228,10 @@ def get_transforms(train_augs):
     return data_transforms
 
 def prepare_dataloader(rank, world_size, data_dict, cat, batch_size, pin_memory=True, num_workers=4, is_train=True, train_aug=None):
-    #if is_train:
-    #    data_transforms = get_transforms(train_aug)
-    #    dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
-    #else:
-    data_transforms = transforms.Compose([transforms.ToTensor()])
+    if is_train:
+        data_transforms = get_transforms(train_aug)
+    else:
+        data_transforms = transforms.Compose([transforms.ToTensor()])
     dataset = SmokeDataset(data_dict[cat], transform=data_transforms)
     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=is_train, drop_last=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers, drop_last=True, shuffle=False, sampler=sampler)
@@ -282,7 +303,8 @@ def main(rank, world_size, config_fn):
 
     model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
 
-    criterion = nn.BCEWithLogitsLoss().to(rank)
+    bce_criterion = nn.BCEWithLogitsLoss().to(rank)
+    dice_criterion = smp.losses.DiceLoss(mode='binary').to(rank)
 
     prev_iou = 0
 
@@ -298,24 +320,26 @@ def main(rank, world_size, config_fn):
         train_loader.sampler.set_epoch(epoch)
         val_loader.sampler.set_epoch(epoch)
 
-        train_model(train_loader, model, criterion, optimizer, rank)
-        val_loss, high_iou, med_iou, low_iou = val_model(val_loader, model, criterion, rank)
+        train_model(train_loader, model, bce_criterion, dice_criterion, optimizer, rank)
+        val_loss, high_iou, med_iou, low_iou = val_model(val_loader, model, bce_criterion, dice_criterion, rank)
 
         if rank==0:
             print("time to run epoch:", np.round(time.time() - start, 2))
             iou, high_iou = get_iou(high_iou, med_iou, low_iou)
-#            if iou > prev_iou and iou > .40 and high_iou > .3:
-            checkpoint = {
-                    'epoch': epoch + 1,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': val_loss,
-                    'iou': iou
-                    }
-            ckpt_pth = '{}{}_{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, encoder, exp_num, int(time.time()))
-            torch.save(checkpoint, ckpt_pth)
-            print('SAVING MODEL:\n', ckpt_pth, flush=True)
-#                prev_iou = iou
+            if iou > prev_iou and iou > .40 and high_iou > .3:
+                checkpoint = {
+                        'epoch': epoch + 1,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': scheduler.state_dict(),
+                        'loss': val_loss,
+                        'iou': iou
+                        }
+                ckpt_pth = '{}{}_{}_exp{}_{}.pth'.format(ckpt_save_loc, arch, encoder, exp_num, int(time.time()))
+                torch.save(checkpoint, ckpt_pth)
+                print('SAVING MODEL:\n', ckpt_pth, flush=True)
+                prev_iou = iou
+        scheduler.step(epoch)  # CosineAnnealingWarmRestarts takes the epoch number
 
     dist.destroy_process_group()
 
