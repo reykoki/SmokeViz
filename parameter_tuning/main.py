@@ -88,19 +88,20 @@ def val_model(dataloader, model, bce_criterion, dice_criterion, rank):
     high_iou = IoUCalculator('high')
     med_iou = IoUCalculator('medium')
     low_iou = IoUCalculator('low')
-    for data in dataloader:
-        batch_data, batch_labels = data
-        batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
-        preds = model(batch_data)
+    with torch.no_grad():
+        for data in dataloader:
+            batch_data, batch_labels = data
+            batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
+            preds = model(batch_data)
 
-        #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
-        loss = combined_loss(preds, labels, bce_criterion, dice_criterion, rank)
+            #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
+            loss = combined_loss(preds, batch_labels, bce_criterion, dice_criterion, rank)
 
-        total_loss += loss.item()
-        num_batches += 1
-        high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
-        med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
-        low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
+            total_loss += loss.item()
+            num_batches += 1
+            high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
+            med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
+            low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
 
     avg_loss = torch.tensor([total_loss / num_batches], device=rank)
     dist.all_reduce(avg_loss)
@@ -175,23 +176,13 @@ def train_model(train_dataloader, model, bce_criterion, dice_criterion, optimize
     start = time.time()
     num_batches = 0
     for data in train_dataloader:
-
         optimizer.zero_grad() # zero the parameter gradients
         batch_data, batch_labels = data
         batch_data, batch_labels = batch_data.to(rank, dtype=torch.float32, non_blocking=True), batch_labels.to(rank, dtype=torch.float32, non_blocking=True)
 
         preds = model(batch_data)
-
         #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
-        loss = combined_loss(preds, labels, bce_criterion, dice_criterion, rank)
-
-        total_loss += loss.item()
-        num_batches += 1
-        high_iou.update(preds[:,0,:,:], batch_labels[:,0,:,:])
-        med_iou.update(preds[:,1,:,:], batch_labels[:,1,:,:])
-        low_iou.update(preds[:,2,:,:], batch_labels[:,2,:,:])
-
-    avg_
+        loss = combined_loss(preds, batch_labels, bce_criterion, dice_criterion, rank)
 
         total_loss += loss.item()
         num_batches += 1
@@ -301,7 +292,7 @@ def main(rank, world_size, config_fn):
         else:
             ckpt_loc = cfg['ckpt']
 
-    model, optimizer, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
+    model, optimizer, scheduler, start_epoch, best_loss = load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num)
 
     bce_criterion = nn.BCEWithLogitsLoss().to(rank)
     dice_criterion = smp.losses.DiceLoss(mode='binary').to(rank)
