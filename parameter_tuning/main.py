@@ -71,7 +71,7 @@ def earth_mover_distance(y_pred, y_true):
     emd = torch.mean(torch.square(torch.cumsum(y_true, dim=1) - torch.cumsum(y_pred, dim=1)))  #abs/square for L1/L2
     return emd
 
-def combined_loss(preds, labels, bce_criterion, dice_criterion,rank):
+def combined_loss(preds, labels, bce_criterion, dice_criterion):
     high_bce  = bce_criterion(preds[:,0,:,:], labels[:,0,:,:])
     med_bce   = bce_criterion(preds[:,1,:,:], labels[:,1,:,:])
     low_bce   = bce_criterion(preds[:,2,:,:], labels[:,2,:,:])
@@ -95,7 +95,7 @@ def val_model(dataloader, model, bce_criterion, dice_criterion, rank):
             preds = model(batch_data)
 
             #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
-            loss = combined_loss(preds, batch_labels, bce_criterion, dice_criterion, rank)
+            loss = combined_loss(preds, batch_labels, bce_criterion, dice_criterion)
 
             total_loss += loss.item()
             num_batches += 1
@@ -129,7 +129,8 @@ def load_model(ckpt_loc, use_ckpt, use_recent, rank, cfg, exp_num):
     model = model.to(rank)
 
     if rank == 0:
-        print(summary(model, input_size=(8,3,256,256)))
+        s = summary(model, input_size=(8,3,256,256))
+        print(s)
 
     optimizer = torch.optim.AdamW([
         {"params": model.encoder.parameters(), "lr": lr * 0.1, "weight_decay": 1e-5},
@@ -182,7 +183,7 @@ def train_model(train_dataloader, model, bce_criterion, dice_criterion, optimize
 
         preds = model(batch_data)
         #loss = earth_mover_distance(preds, batch_labels)#.to(rank)
-        loss = combined_loss(preds, batch_labels, bce_criterion, dice_criterion, rank)
+        loss = combined_loss(preds, batch_labels, bce_criterion, dice_criterion)
 
         total_loss += loss.item()
         num_batches += 1
@@ -244,8 +245,7 @@ def main(rank, world_size, config_fn):
     cudnn.deterministic = True
     cudnn.benchmark = False
 
-    #exp_num = config_fn.split('exp')[-1].split('.json')[0]
-    exp_num = '0'
+    exp_num = config_fn.split('exp')[-1].split('.json')[0]
     with open(config_fn) as fn:
         cfg = json.load(fn)
     arch = cfg['architecture']
@@ -257,7 +257,7 @@ def main(rank, world_size, config_fn):
     with open(data_fn, 'rb') as handle:
         data_dict = pickle.load(handle)
 
-    n_epochs = 1
+    n_epochs = 100
     start_epoch = 0
     lr = cfg['lr']
     batch_size = int(cfg['batch_size'])
