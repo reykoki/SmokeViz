@@ -59,23 +59,40 @@ STAGES = {
     },
 
     # Stage 2: tune optimizer
-    2: {
-        "n_jobs": 25,
+    6: {
+        "n_jobs": 12,
         "search": {
-            "lr":         [1e-3, 5e-4, 1e-4],
-            "batch_size": [128, 256, 512],
-            "weight_decay":          [1e-6, 1e-5, 1e-4],
-            "encoder_lr_multiplier": [0.01, 0.1, 0.5],
+            "lr":         [1e-3, 5e-4, 2.5e-4, 1e-4],
+            "batch_size": [32, 64, 128],
+            "weight_decay":          [1e-5],
+            "encoder_lr_multiplier": [0.1],
         },
         "overrides": {
-            "stage": 2,
+            "stage": 6,
             "architecture": "PSPNet",
-            "encoder":      "timm-efficientnet-b2",  # <-- update after stage 1
+            #"encoder":      "timm-efficientnet-b2",  # <-- update after stage 1
+            "encoder":      "resnet34",  # <-- update after stage 1
         }
     },
 
-    # Stage 3: loss weights + augmentation
+    # Stage 3: tune enc_mult around exp57/58 sweet spot
     3: {
+        "n_jobs": 2,
+        "search": {
+            "lr":                    [1e-3],
+            "batch_size":            [128],
+            "weight_decay":          [1e-5],
+            "encoder_lr_multiplier": [0.05, 0.1],
+        },
+        "overrides": {
+            "stage": 3,
+            "architecture": "PSPNet",
+            "encoder":      "resnet34",
+        }
+    },
+
+    # Stage 4: loss weights + augmentation
+    5: {
         "n_jobs": 12,
         "search": {
             "loss_high_weight":    [2, 3, 4],
@@ -87,12 +104,13 @@ STAGES = {
             ],
         },
         "overrides": {
-            "stage": 3,
+            "stage": 5,
             "architecture":          "PSPNet",
-            "encoder":               "timm-efficientnet-b2",  # <-- update after stage 1
-            "lr":                    1e-4,                    # <-- update after stage 2
-            "weight_decay":          1e-5,                    # <-- update after stage 2
+            "encoder":               "resnet34",  # <-- update after stage 1
+            "lr":                    1e-3,                    # <-- update after stage 2
+            "weight_decay":          1e-5,                   # <-- update after stage 2
             "encoder_lr_multiplier": 0.1,                     # <-- update after stage 2
+            "batch_size":            128,
         }
     },
 }
